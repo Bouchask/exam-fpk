@@ -2,12 +2,18 @@ import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
-export const Layout = ({ children }: { children: React.ReactNode }) => {
+interface LayoutProps {
+  children: React.ReactNode;
+  activeView: string;
+  userRole: "admin" | "professor";
+}
+
+export const Layout = ({ children, activeView, userRole }: LayoutProps) => {
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <Sidebar />
+    <div className="flex min-h-screen bg-app-bg text-app-fg">
+      <Sidebar activeView={activeView} userRole={userRole} />
       <div className="flex-1 flex flex-col">
-        <Topbar />
+        <Topbar userRole={userRole} />
         <main className="p-8 overflow-y-auto">
           {children}
         </main>

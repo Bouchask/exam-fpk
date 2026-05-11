@@ -1,5 +1,5 @@
 import React from "react";
-import { cn } from "../utils/cn";
+import { cn } from "../../utils/cn";
 
 interface Column<T> {
   header: string;
@@ -15,23 +15,23 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ columns, data, emptyMessage = "No data available." }: DataTableProps<T>) {
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-border bg-card">
+    <div className="w-full overflow-x-auto border border-app-border bg-white rounded-none">
       <table className="w-full text-sm text-left">
-        <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-border">
+        <thead className="text-[10px] uppercase tracking-[0.2em] bg-app-fg text-stone-300">
           <tr>
             {columns.map((column, i) => (
-              <th key={i} className={cn("px-6 py-4 font-semibold", column.className)}>
+              <th key={i} className={cn("px-6 py-5 font-black border-r border-stone-800 last:border-r-0", column.className)}>
                 {column.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-stone-100 text-app-fg font-medium">
           {data.length > 0 ? (
             data.map((item, i) => (
-              <tr key={i} className="hover:bg-slate-800/50 transition-colors">
+              <tr key={i} className="hover:bg-stone-50 transition-colors duration-100">
                 {columns.map((column, j) => (
-                  <td key={j} className={cn("px-6 py-4", column.className)}>
+                  <td key={j} className={cn("px-6 py-4 border-r border-stone-50 last:border-r-0", column.className)}>
                     {typeof column.accessor === "function" 
                       ? column.accessor(item) 
                       : (item[column.accessor] as React.ReactNode)}
@@ -41,7 +41,7 @@ export function DataTable<T>({ columns, data, emptyMessage = "No data available.
             ))
           ) : (
             <tr>
-              <td colSpan={columns.length} className="px-6 py-12 text-center text-slate-500 italic">
+              <td colSpan={columns.length} className="px-6 py-20 text-center text-stone-400 uppercase text-[10px] font-black tracking-widest italic">
                 {emptyMessage}
               </td>
             </tr>

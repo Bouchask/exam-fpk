@@ -3,73 +3,143 @@ import { Layout } from "./components/layout/Layout";
 import { AdminDashboard } from "./views/AdminDashboard";
 import { AssignmentEngine } from "./views/AssignmentEngine";
 import { ProfessorPortal } from "./views/ProfessorPortal";
+import { ProfessorHistory } from "./views/ProfessorHistory";
+import { ProfessorIncidents } from "./views/ProfessorIncidents";
+import { Login } from "./views/Login";
 
 function App() {
-  const [currentView, setCurrentView] = useState("engine");
+  const [userRole, setUserRole] = useState<"admin" | "professor" | null>(null);
+  const [currentView, setCurrentView] = useState("dashboard");
 
-  // Simple hash-based routing for demo purposes
+  const handleLogin = (role: "admin" | "professor") => {
+    setUserRole(role);
+    if (role === "admin") {
+      setCurrentView("dashboard");
+      window.location.hash = "dashboard";
+    } else {
+      setCurrentView("portal");
+      window.location.hash = "portal";
+    }
+  };
+
+  const handleLogout = () => {
+    setUserRole(null);
+    window.location.hash = "";
+  };
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "");
-      if (hash) setCurrentView(hash);
+      if (hash && userRole) setCurrentView(hash);
     };
 
     window.addEventListener("hashchange", handleHashChange);
     handleHashChange();
 
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  }, [userRole]);
+
+  if (!userRole) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   const renderView = () => {
     switch (currentView) {
+      // ADMIN VIEWS
       case "dashboard":
-        return <AdminDashboard />;
-      case "engine":
-        return <AssignmentEngine />;
+        return <AdminDashboard forcedTab="overview" />;
+      case "salles":
+        return <AdminDashboard forcedTab="salles" />;
+      case "exams":
+        return <AdminDashboard forcedTab="exams" />;
       case "staff":
       case "professors":
-        return <AdminDashboard />; // Reusing dashboard for staff demo
+        return <AdminDashboard forcedTab="professors" />;
+      case "departments":
+        return <AdminDashboard forcedTab="departments" />;
+      case "engine":
+        return <AssignmentEngine />;
+      
+      // PROFESSOR VIEWS
       case "portal":
         return <ProfessorPortal />;
+      case "history":
+        return <ProfessorHistory />;
+      case "incidents":
+        return <ProfessorIncidents />;
+      
       default:
-        return <AssignmentEngine />;
+        return userRole === "admin" ? <AdminDashboard forcedTab="overview" /> : <ProfessorPortal />;
     }
   };
 
   return (
-    <Layout>
-      <div className="mb-4 flex items-center gap-4 border-b border-border pb-4 md:hidden">
+    <Layout activeView={currentView} userRole={userRole}>
+      <div className="mb-8 flex items-center justify-between border-b-2 border-stone-100 pb-6 md:hidden">
         <select 
           value={currentView} 
           onChange={(e) => setCurrentView(e.target.value)}
-          className="bg-slate-900 border border-border rounded px-2 py-1 text-sm"
+          className="bg-stone-50 border border-stone-200 rounded-none px-4 py-2 text-[10px] font-black uppercase tracking-widest text-app-fg focus:outline-none focus:border-app-primary"
         >
-          <option value="dashboard">Admin Dashboard</option>
-          <option value="engine">Assignment Engine</option>
-          <option value="portal">Professor Portal</option>
+          {userRole === "admin" ? (
+            <>
+              <option value="dashboard">ADMIN DASHBOARD</option>
+              <option value="salles">SALLES</option>
+              <option value="exams">EXAMS</option>
+              <option value="staff">STAFF</option>
+              <option value="departments">DEPARTMENTS</option>
+              <option value="engine">ASSIGNMENT ENGINE</option>
+            </>
+          ) : (
+            <>
+              <option value="portal">DUTY PORTAL</option>
+              <option value="history">ASSIGNMENT HISTORY</option>
+              <option value="incidents">INCIDENT LOGS</option>
+            </>
+          )}
         </select>
+        <button 
+          onClick={handleLogout}
+          className="text-[10px] font-black text-red-800 uppercase tracking-widest underline"
+        >
+          SIGN OUT
+        </button>
       </div>
+      
       {renderView()}
       
-      {/* Demo Floating Switcher for easy testing */}
-      <div className="fixed bottom-6 right-6 flex gap-2 bg-slate-900/80 backdrop-blur border border-border p-2 rounded-full shadow-2xl z-50">
+      {/* Sharp Demo Action Bar */}
+      <div className="fixed bottom-6 right-6 flex gap-0 bg-app-fg border-2 border-stone-800 p-0 shadow-none z-50">
+        {userRole === "admin" && (
+          <>
+            <button 
+              onClick={() => window.location.hash = "dashboard"}
+              className={`px-6 py-2 rounded-none text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'dashboard' ? 'bg-app-primary text-white' : 'text-stone-400 hover:bg-stone-800'}`}
+            >
+              ADMIN
+            </button>
+            <button 
+              onClick={() => window.location.hash = "engine"}
+              className={`px-6 py-2 rounded-none text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'engine' ? 'bg-app-primary text-white' : 'text-stone-400 hover:bg-stone-800'}`}
+            >
+              ENGINE
+            </button>
+          </>
+        )}
+        {userRole === "professor" && (
+          <button 
+            onClick={() => window.location.hash = "portal"}
+            className={`px-6 py-2 rounded-none text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'portal' ? 'bg-app-primary text-white' : 'text-stone-400 hover:bg-stone-800'}`}
+          >
+            PORTAL
+          </button>
+        )}
+        <div className="w-px bg-stone-800"></div>
         <button 
-          onClick={() => window.location.hash = "dashboard"}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-slate-800'}`}
+          onClick={handleLogout}
+          className="px-6 py-2 rounded-none text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-950 transition-all"
         >
-          Admin
-        </button>
-        <button 
-          onClick={() => window.location.hash = "engine"}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${currentView === 'engine' ? 'bg-primary text-primary-foreground' : 'hover:bg-slate-800'}`}
-        >
-          Engine
-        </button>
-        <button 
-          onClick={() => window.location.hash = "portal"}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${currentView === 'portal' ? 'bg-primary text-primary-foreground' : 'hover:bg-slate-800'}`}
-        >
-          Professor
+          EXIT
         </button>
       </div>
     </Layout>

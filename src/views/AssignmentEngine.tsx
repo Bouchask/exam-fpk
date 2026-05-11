@@ -2,19 +2,19 @@ import React, { useState } from "react";
 import { 
   Play, 
   CheckCircle2, 
-  AlertTriangle, 
   RefreshCcw, 
-  ArrowRight,
   ShieldAlert,
-  Info
+  Info,
+  Cpu,
+  ArrowRight
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
 const steps = [
-  { id: 1, name: "Dept Filtering", description: "Matching professors with their departments" },
-  { id: 2, name: "Quota Validation", description: "Checking semester limit (max 4)" },
-  { id: 3, name: "Conflict Resolution", description: "Solving time & room overlaps" },
-  { id: 4, name: "Final Allocation", description: "Generating schedule records" },
+  { id: 1, name: "DEPT FILTER", description: "Departmental alignment check" },
+  { id: 2, name: "QUOTA VALID", description: "Semester limit validation" },
+  { id: 3, name: "CONFLICT RES", description: "Room/Time overlap solving" },
+  { id: 4, name: "FINAL ALLOC", description: "Record generation" },
 ];
 
 export const AssignmentEngine = () => {
@@ -37,93 +37,98 @@ export const AssignmentEngine = () => {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Assignment Engine</h1>
-        <p className="text-slate-400">Automate invigilation (Garde) schedules based on departmental alignment and quotas.</p>
+      <div className="border-l-8 border-app-primary pl-6 py-2">
+        <h1 className="text-3xl font-black tracking-tighter text-app-fg uppercase">Assignment Engine</h1>
+        <p className="text-xs font-bold text-stone-500 uppercase tracking-[0.2em] mt-2">Automated Invigilation Logistics</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-app-border">
         {/* Trigger Card */}
-        <div className="md:col-span-2 bg-card border border-border rounded-2xl p-8 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+        <div className="md:col-span-2 bg-white p-10 flex flex-col justify-between border-r border-app-border">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-100 text-app-fg text-[10px] font-black uppercase tracking-widest border border-stone-200">
               <Cpu className="w-3 h-3" />
-              Algorithm v2.4
+              ALGORITHM CORE V2.4
             </div>
-            <h2 className="text-2xl font-semibold">Run Random Allocation</h2>
-            <p className="text-slate-400 leading-relaxed">
-              This process will analyze all scheduled exams for the Semester 2, 2026, 
-              and assign eligible professors while strictly respecting the maximum 4-guards quota 
-              and departmental expertise rules.
+            <h2 className="text-2xl font-black text-app-fg uppercase tracking-tight">Run Random Allocation</h2>
+            <p className="text-sm text-stone-500 leading-relaxed max-w-xl font-medium">
+              Triggering this process will synchronize all scheduled exams for Semester 2, 2026. 
+              Eligible professors will be assigned based on departmental expertise and 4-guard quotas.
             </p>
           </div>
 
-          <div className="mt-8 flex items-center gap-4">
+          <div className="mt-10 flex items-center gap-4">
             <button 
               onClick={startAssignment}
               disabled={status === "running"}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all disabled:opacity-50"
+              className="flex items-center gap-3 bg-app-fg text-white px-10 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-app-primary transition-all disabled:opacity-50"
             >
-              {status === "running" ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
-              {status === "running" ? "Processing..." : "Trigger Assignment"}
+              {status === "running" ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {status === "running" ? "PROCESSING..." : "EXECUTE ALLOCATION"}
             </button>
-            <button className="flex items-center gap-2 border border-border px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all">
-              Simulation Mode
+            <button className="flex items-center gap-2 bg-white border border-stone-200 text-stone-600 px-6 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-stone-50 transition-all">
+              SIMULATE
             </button>
           </div>
         </div>
 
         {/* Stats Summary */}
-        <div className="bg-slate-900/50 border border-border rounded-2xl p-6 space-y-6">
-          <h3 className="font-semibold text-slate-300">Engine Parameters</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-500">Pending Exams</span>
-              <span className="font-mono text-primary">124</span>
+        <div className="bg-stone-50 p-10 space-y-8">
+          <h3 className="font-black text-app-fg uppercase text-xs tracking-widest border-b border-stone-200 pb-4">Engine Parameters</h3>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+              <span className="text-stone-500">Pending Exams</span>
+              <span className="text-app-primary">124 UNITS</span>
             </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-500">Available Staff</span>
-              <span className="font-mono text-primary">48</span>
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+              <span className="text-stone-500">Available Staff</span>
+              <span className="text-app-primary">48 PERS.</span>
             </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-500">Target Semester</span>
-              <span className="font-medium">S2-2026</span>
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+              <span className="text-stone-500">Semester</span>
+              <span className="text-app-fg">S2-2026</span>
             </div>
           </div>
-          <div className="pt-4 border-t border-border">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 text-blue-400 text-xs">
-              <Info className="w-4 h-4 shrink-0" />
-              <p>Assignments are randomized each run to ensure fairness across all departments.</p>
+          <div className="pt-4">
+            <div className="flex items-start gap-3 p-4 bg-white border border-stone-200 text-[10px] font-bold text-stone-500 leading-normal uppercase">
+              <Info className="w-4 h-4 shrink-0 text-app-primary" />
+              <p>Randomization is enforced to ensure equitable distribution across all departments.</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Progress Stepper */}
-      <div className="bg-card border border-border rounded-2xl p-8">
-        <h3 className="text-lg font-semibold mb-8">Allocation Phases</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
+      <div className="bg-white border border-app-border p-10">
+        <h3 className="text-sm font-black mb-10 text-app-fg uppercase tracking-widest flex items-center gap-3">
+          <div className="w-1 h-4 bg-app-primary"></div>
+          Allocation Status
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-0 relative border border-stone-100">
           {steps.map((step, index) => {
             const isCompleted = activeStep > index + 1 || status === "completed";
             const isActive = activeStep === index + 1 || (status === "running" && activeStep === index);
             
             return (
-              <div key={step.id} className="relative z-10">
+              <div key={step.id} className={cn(
+                "p-6 border-r border-stone-100 last:border-r-0 transition-colors",
+                isActive ? "bg-stone-50" : "bg-white"
+              )}>
                 <div className="flex flex-col gap-4">
                   <div className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500",
-                    isCompleted ? "bg-primary border-primary text-primary-foreground" :
-                    isActive ? "border-primary text-primary animate-pulse" :
-                    "border-border text-slate-600"
+                    "w-8 h-8 flex items-center justify-center font-black text-xs transition-all duration-500",
+                    isCompleted ? "bg-app-primary text-white" :
+                    isActive ? "bg-app-fg text-white animate-pulse" :
+                    "bg-stone-100 text-stone-400"
                   )}>
-                    {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : step.id}
+                    {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : step.id}
                   </div>
                   <div>
                     <h4 className={cn(
-                      "font-semibold text-sm",
-                      isActive || isCompleted ? "text-slate-100" : "text-slate-500"
+                      "font-black text-[10px] uppercase tracking-widest",
+                      isActive || isCompleted ? "text-app-fg" : "text-stone-400"
                     )}>{step.name}</h4>
-                    <p className="text-xs text-slate-500 mt-1">{step.description}</p>
+                    <p className="text-[9px] text-stone-400 mt-1 uppercase font-bold">{step.description}</p>
                   </div>
                 </div>
               </div>
@@ -134,32 +139,32 @@ export const AssignmentEngine = () => {
 
       {/* Conflict Resolution Warning */}
       {status === "completed" && (
-        <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-6 flex items-start gap-5">
-          <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-6 h-6 text-orange-500" />
+        <div className="animate-in slide-in-from-bottom-4 duration-500 bg-stone-900 text-white p-10 flex items-start gap-8">
+          <div className="w-16 h-16 bg-red-600 flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-8 h-8 text-white" />
           </div>
           <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-orange-400">Conflict Resolution Required</h3>
-              <span className="text-xs font-bold bg-orange-500/20 text-orange-500 px-2 py-1 rounded">2 Issues</span>
+            <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+              <h3 className="text-xl font-black uppercase tracking-tighter">Exceptions Detected</h3>
+              <span className="text-[10px] font-black bg-red-600 px-3 py-1 tracking-widest">2 CRITICAL ISSUES</span>
             </div>
-            <p className="text-slate-400 mt-1 text-sm">
-              The algorithm couldn't find enough eligible professors for the following exams due to department mismatches:
+            <p className="text-stone-400 mt-4 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+              Manual intervention required for the following modules due to quota exhaustion:
             </p>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-900 border border-border p-4 rounded-xl flex justify-between items-center">
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-stone-800 p-6 flex justify-between items-center border-l-4 border-red-600">
                 <div>
-                  <p className="text-sm font-medium">Machine Learning Final</p>
-                  <p className="text-xs text-slate-500">May 15 - Salle B12</p>
+                  <p className="font-black text-xs uppercase tracking-widest">Machine Learning</p>
+                  <p className="text-[9px] text-stone-500 mt-1 uppercase font-bold tracking-widest">Room B12 • May 15</p>
                 </div>
-                <button className="text-xs font-bold text-primary hover:underline">Manual Fix</button>
+                <button className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-white transition-colors">Resolve</button>
               </div>
-              <div className="bg-slate-900 border border-border p-4 rounded-xl flex justify-between items-center">
+              <div className="bg-stone-800 p-6 flex justify-between items-center border-l-4 border-red-600">
                 <div>
-                  <p className="text-sm font-medium">Distributed Systems</p>
-                  <p className="text-xs text-slate-500">May 18 - Salle A04</p>
+                  <p className="font-black text-xs uppercase tracking-widest">Distributed Systems</p>
+                  <p className="text-[9px] text-stone-500 mt-1 uppercase font-bold tracking-widest">Room A04 • May 18</p>
                 </div>
-                <button className="text-xs font-bold text-primary hover:underline">Manual Fix</button>
+                <button className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-white transition-colors">Resolve</button>
               </div>
             </div>
           </div>
@@ -168,6 +173,3 @@ export const AssignmentEngine = () => {
     </div>
   );
 };
-
-// Add missing Cpu import at top
-import { Cpu } from "lucide-react";

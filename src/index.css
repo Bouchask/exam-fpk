@@ -1,20 +1,34 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto:wght@400;500;700&display=swap');
 
-@layer base {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 171 66% 50%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --border: 217.2 32.6% 17.5%;
-  }
+@theme {
+  /* New Brown & Black-Brown Palette */
+  --color-app-bg: #ffffff; /* Clean White */
+  --color-app-fg: #1a1210; /* Black-Brown (Deep Dark Brown) */
+  --color-app-primary: #4e342e; /* Rich Institutional Brown */
+  --color-app-accent: #8d6e63; /* Medium Brown */
+  --color-app-card: #ffffff;
+  --color-app-border: #d7ccc8; /* Soft Brown Border */
+  
+  --font-sans: "Open Sans", "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Roboto", ui-sans-serif, system-ui, sans-serif;
+
+  /* Global Rounding Override to 90 degrees */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-full: 0px;
 }
 
-body {
-  @apply bg-background text-foreground antialiased;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+@layer base {
+  body {
+    background-color: var(--color-app-bg);
+    color: var(--color-app-fg);
+    @apply antialiased;
+    font-family: var(--font-sans);
+  }
 }

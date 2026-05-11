@@ -1,58 +1,79 @@
 import React from "react";
-import { 
-  LayoutDashboard, 
-  DoorOpen, 
-  FileText, 
-  Users, 
-  Building2, 
-  Cpu, 
-  UserCircle 
-} from "lucide-react";
 import { cn } from "../../utils/cn";
+import { UserCircle } from "lucide-react";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "#dashboard" },
-  { icon: DoorOpen, label: "Salles", href: "#salles" },
-  { icon: FileText, label: "Exams", href: "#exams" },
-  { icon: Users, label: "Staff", href: "#staff" },
-  { icon: Building2, label: "Departments", href: "#departments" },
-  { icon: Cpu, label: "Assignment Engine", href: "#engine", active: true },
+const adminMenuItems = [
+  { id: "dashboard", label: "Control Center", href: "#dashboard" },
+  { id: "salles", label: "Salles", href: "#salles" },
+  { id: "exams", label: "Exams", href: "#exams" },
+  { id: "staff", label: "Staff", href: "#staff" },
+  { id: "departments", label: "Departments", href: "#departments" },
+  { id: "engine", label: "Assignment Engine", href: "#engine" },
 ];
 
-export const Sidebar = () => {
+const professorMenuItems = [
+  { id: "portal", label: "Duty Portal", href: "#portal" },
+  { id: "history", label: "Assignment History", href: "#history" },
+  { id: "incidents", label: "Incident Logs", href: "#incidents" },
+];
+
+interface SidebarProps {
+  activeView: string;
+  userRole: "admin" | "professor";
+}
+
+export const Sidebar = ({ activeView, userRole }: SidebarProps) => {
+  const menuItems = userRole === "admin" ? adminMenuItems : professorMenuItems;
+
   return (
-    <aside className="w-64 border-r border-border bg-card hidden md:flex flex-col h-screen sticky top-0">
-      <div className="p-6">
-        <div className="flex items-center gap-2 font-bold text-xl text-primary">
-          <Cpu className="w-8 h-8" />
-          <span>ExamGuard</span>
+    <aside className="w-64 border-r border-app-border bg-white hidden md:flex flex-col h-screen sticky top-0 z-20">
+      <div className="p-6 border-b border-app-border">
+        <div className="flex items-center gap-3 font-bold text-xl text-app-primary">
+          <img 
+            src="/fpk.jpeg" 
+            alt="FPK Logo" 
+            className="h-10 w-auto object-contain"
+          />
+          <span className="tracking-tight text-app-fg uppercase text-sm font-black">FPK Guard</span>
         </div>
       </div>
       
-      <nav className="flex-1 px-4 space-y-1">
-        {menuItems.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-              item.active 
-                ? "bg-primary/10 text-primary" 
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="font-medium">{item.label}</span>
-          </a>
-        ))}
+      <nav className="flex-1 px-0 space-y-0 mt-4">
+        <p className="px-6 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-4">
+          {userRole === "admin" ? "Management" : "Faculty Portal"}
+        </p>
+        {menuItems.map((item) => {
+          const isActive = activeView === item.id || (item.id === 'staff' && activeView === 'professors');
+          
+          return (
+            <a
+              key={item.id}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-4 px-6 py-3.5 transition-all duration-150 border-l-4",
+                isActive 
+                  ? "bg-stone-100 text-app-primary border-app-primary font-bold" 
+                  : "text-stone-500 hover:bg-stone-50 hover:text-app-fg border-transparent font-medium"
+              )}
+            >
+              <span className="text-sm uppercase tracking-wider">{item.label}</span>
+            </a>
+          );
+        })}
       </nav>
 
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3 px-3 py-2 text-slate-400">
-          <UserCircle className="w-5 h-5" />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-slate-200">Admin Panel</span>
-            <span className="text-xs">Scolarité</span>
+      <div className="p-6 bg-app-fg text-white">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-app-primary flex items-center justify-center text-white">
+            <UserCircle className="w-6 h-6" />
+          </div>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-xs font-black uppercase tracking-wider truncate">
+              {userRole === "admin" ? "Admin System" : "Professor"}
+            </span>
+            <span className="text-[10px] text-stone-400 uppercase">
+              {userRole === "admin" ? "Scolarité Dept" : "Faculty Account"}
+            </span>
           </div>
         </div>
       </div>
