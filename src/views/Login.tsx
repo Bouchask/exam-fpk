@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { User, Lock, ArrowRight, Building2, ShieldCheck, RefreshCcw } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, ShieldCheck, RefreshCcw } from "lucide-react";
 
 interface LoginProps {
   onLogin: (role: "admin" | "professor") => void;
@@ -32,7 +32,6 @@ export const Login = ({ onLogin }: LoginProps) => {
     <div className="min-h-screen bg-app-fg flex items-center justify-center p-0 font-sans">
       <div className="max-w-md w-full bg-white border-t-8 border-app-primary">
         <div className="p-12">
-          {/* Logo Section */}
           <div className="mb-10">
              <img 
                src="/fpk.jpeg" 
@@ -108,3 +107,5 @@ export const Login = ({ onLogin }: LoginProps) => {
     </div>
   );
 };
+
+import React from "react";

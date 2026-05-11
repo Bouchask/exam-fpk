@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Calendar, Clock, MapPin, BookOpen, GraduationCap, CheckCircle, Bell, ArrowRight, Download, History, Settings, Save, AlertCircle, FileSignature } from "lucide-react";
+import { useState } from "react";
+import { Clock, MapPin, BookOpen, ArrowRight, Download, History, Settings, Save, AlertCircle, FileSignature } from "lucide-react";
 import { cn } from "../utils/cn";
 import { Modal } from "../components/ui/Modal";
 
@@ -24,7 +24,6 @@ export const ProfessorPortal = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-10 py-6 animate-in fade-in duration-500">
-      {/* Institutional Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b-4 border-app-fg pb-10">
         <div>
           <div className="flex items-center gap-3 mb-4">
@@ -35,11 +34,7 @@ export const ProfessorPortal = () => {
           <p className="text-xs font-bold text-stone-500 mt-4 uppercase tracking-[0.3em]">Department of Computer Science • Institutional Grade: PR</p>
         </div>
         <div className="flex gap-4">
-           <button 
-             onClick={() => setIsProfileModalOpen(true)}
-             className="bg-stone-100 p-4 border border-stone-200 hover:bg-stone-200 transition-colors group"
-             title="Profile Settings"
-           >
+           <button onClick={() => setIsProfileModalOpen(true)} className="bg-stone-100 p-4 border border-stone-200 hover:bg-stone-200 transition-colors group">
               <Settings className="w-5 h-5 text-app-fg group-hover:rotate-90 transition-transform" />
            </button>
            <div className="h-16 w-16 bg-app-fg text-white flex items-center justify-center font-black text-xl">
@@ -48,16 +43,15 @@ export const ProfessorPortal = () => {
         </div>
       </div>
 
-      {/* KPI Modules */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-stone-200">
         <div className="p-10 bg-white border-r border-stone-200">
            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-6">Current Quota</p>
            <div className="flex items-baseline gap-3">
-              <span className="text-5xl font-black text-app-fg leading-none">02</span>
-              <span className="text-xl font-black text-stone-300 leading-none">/ 04</span>
+              <span className="text-5xl font-black text-app-fg leading-none">{String(completedGuards).padStart(2, '0')}</span>
+              <span className="text-xl font-black text-stone-300 leading-none">/ {String(totalQuota).padStart(2, '0')}</span>
            </div>
            <div className="mt-8 h-2 w-full bg-stone-100 rounded-none overflow-hidden">
-              <div className="h-full bg-app-primary transition-all duration-1000" style={{ width: '50%' }} />
+              <div className="h-full bg-app-primary transition-all duration-1000" style={{ width: `${(completedGuards / totalQuota) * 100}%` }} />
            </div>
         </div>
         <div className="p-10 bg-white border-r border-stone-200">
@@ -78,14 +72,13 @@ export const ProfessorPortal = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Main Schedule Column */}
         <div className="lg:col-span-2 space-y-8">
            <h3 className="text-sm font-black flex items-center gap-4 text-app-fg uppercase tracking-[0.2em]">
              <div className="w-2 h-6 bg-app-primary"></div>
              Active Assignments
            </h3>
 
-           <div className="space-y-0 border border-stone-200">
+           <div className="space-y-0 border border-stone-200 shadow-none">
              {personalExams.map((exam) => (
                <div key={exam.id} className="group bg-white border-b border-stone-100 last:border-b-0 p-8 hover:bg-stone-50 transition-colors duration-150">
                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -110,15 +103,9 @@ export const ProfessorPortal = () => {
                     <div className="flex items-center gap-10 md:border-l border-stone-200 md:pl-10">
                        <div className="text-left md:text-right">
                           <p className="text-xs font-black text-app-fg uppercase tracking-widest">{exam.date}</p>
-                          <span className={cn(
-                            "text-[8px] font-black uppercase px-2 py-0.5 mt-1 inline-block tracking-widest",
-                            exam.status === 'CONFIRMED' ? "bg-stone-900 text-white" : "border border-stone-200 text-stone-400"
-                          )}>{exam.status}</span>
+                          <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 mt-1 inline-block tracking-widest", exam.status === 'CONFIRMED' ? "bg-stone-900 text-white" : "border border-stone-200 text-stone-400")}>{exam.status}</span>
                        </div>
-                       <button 
-                         onClick={() => handleOpenIncident(exam)}
-                         className="px-6 py-3 border-2 border-app-fg text-app-fg font-black uppercase tracking-widest text-[10px] hover:bg-app-fg hover:text-white transition-all"
-                       >
+                       <button onClick={() => handleOpenIncident(exam)} className="px-6 py-3 border-2 border-app-fg text-app-fg font-black uppercase tracking-widest text-[10px] hover:bg-app-fg hover:text-white transition-all">
                           LOGS
                        </button>
                     </div>
@@ -128,9 +115,7 @@ export const ProfessorPortal = () => {
            </div>
         </div>
 
-        {/* Sidebar Utilities */}
         <div className="space-y-10">
-           {/* Bulletin Board */}
            <div className="bg-app-fg p-10 text-white">
               <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-8 border-b border-stone-800 pb-4">Faculty Bulletins</h4>
               <div className="space-y-8">
@@ -142,7 +127,6 @@ export const ProfessorPortal = () => {
               </div>
            </div>
 
-           {/* Quick Actions */}
            <div className="space-y-4">
               <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-6">Service Portal</h4>
               <button className="w-full flex items-center justify-between p-6 bg-white border border-stone-200 hover:border-app-primary transition-all group">
@@ -152,11 +136,17 @@ export const ProfessorPortal = () => {
                  </div>
                  <ArrowRight className="w-4 h-4 text-stone-200" />
               </button>
+              <button className="w-full flex items-center justify-between p-6 bg-white border border-stone-200 hover:border-app-primary transition-all group">
+                 <div className="flex items-center gap-4">
+                    <History className="w-5 h-5 text-stone-400 group-hover:text-app-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Past Assignments</span>
+                 </div>
+                 <ArrowRight className="w-4 h-4 text-stone-200" />
+              </button>
            </div>
         </div>
       </div>
 
-      {/* Profile Settings Modal */}
       <Modal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Faculty Profile Settings">
         <form className="space-y-6">
            <div className="grid grid-cols-1 gap-6">
@@ -173,18 +163,6 @@ export const ProfessorPortal = () => {
                        <option>PH (HABILITÉ)</option>
                     </select>
                  </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Department</label>
-                    <select className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all">
-                       <option>COMPUTER SCIENCE</option>
-                       <option>MATHEMATICS</option>
-                       <option>PHYSICS</option>
-                    </select>
-                 </div>
-              </div>
-              <div className="space-y-1">
-                 <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Institutional Email</label>
-                 <input type="email" defaultValue="s.connor@fpk.ac.ma" className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold focus:outline-none focus:border-app-primary transition-all" />
               </div>
               <div className="space-y-1">
                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Digital Signature Reference</label>
@@ -200,7 +178,6 @@ export const ProfessorPortal = () => {
         </form>
       </Modal>
 
-      {/* Incident / Swap Request Modal */}
       <Modal isOpen={isIncidentModalOpen} onClose={() => setIsIncidentModalOpen(false)} title="Duty Report / Incident Log">
         <form className="space-y-6">
            {selectedExam && (
@@ -210,22 +187,13 @@ export const ProfessorPortal = () => {
              </div>
            )}
            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Reporting Category</label>
-              <select className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all">
-                 <option>SCHEDULE CONFLICT</option>
-                 <option>ROOM UNAVAILABILITY</option>
-                 <option>EMERGENCY LEAVE</option>
-                 <option>OTHER INCIDENT</option>
-              </select>
-           </div>
-           <div className="space-y-1">
               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Formal Explanation</label>
               <textarea rows={4} placeholder="PROVIDE DETAILED LOG FOR SCOLARITÉ REVIEW..." className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all resize-none" />
            </div>
            <div className="p-4 bg-stone-100 flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-app-primary shrink-0" />
               <p className="text-[9px] font-bold text-stone-500 uppercase leading-relaxed">
-                 Reporting an incident triggers a manual review by the administration. You will be notified once a decision is reached.
+                 Reporting an incident triggers a manual review by the administration.
               </p>
            </div>
            <button type="button" className="w-full bg-app-primary text-white py-5 font-black uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-3 hover:bg-app-fg transition-all">

@@ -1,4 +1,3 @@
-import React from "react";
 import { DataTable } from "../components/ui/DataTable";
 import { AlertTriangle, Clock } from "lucide-react";
 import { cn } from "../utils/cn";

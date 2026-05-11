@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { 
   Play, 
   CheckCircle2, 
@@ -6,7 +6,6 @@ import {
   ShieldAlert,
   Info,
   Cpu,
-  ArrowRight
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -43,7 +42,6 @@ export const AssignmentEngine = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-app-border">
-        {/* Trigger Card */}
         <div className="md:col-span-2 bg-white p-10 flex flex-col justify-between border-r border-app-border">
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-100 text-app-fg text-[10px] font-black uppercase tracking-widest border border-stone-200">
@@ -72,7 +70,6 @@ export const AssignmentEngine = () => {
           </div>
         </div>
 
-        {/* Stats Summary */}
         <div className="bg-stone-50 p-10 space-y-8">
           <h3 className="font-black text-app-fg uppercase text-xs tracking-widest border-b border-stone-200 pb-4">Engine Parameters</h3>
           <div className="space-y-6">
@@ -98,13 +95,12 @@ export const AssignmentEngine = () => {
         </div>
       </div>
 
-      {/* Progress Stepper */}
       <div className="bg-white border border-app-border p-10">
         <h3 className="text-sm font-black mb-10 text-app-fg uppercase tracking-widest flex items-center gap-3">
           <div className="w-1 h-4 bg-app-primary"></div>
           Allocation Status
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-0 relative border border-stone-100">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border border-stone-100">
           {steps.map((step, index) => {
             const isCompleted = activeStep > index + 1 || status === "completed";
             const isActive = activeStep === index + 1 || (status === "running" && activeStep === index);
@@ -137,7 +133,6 @@ export const AssignmentEngine = () => {
         </div>
       </div>
 
-      {/* Conflict Resolution Warning */}
       {status === "completed" && (
         <div className="animate-in slide-in-from-bottom-4 duration-500 bg-stone-900 text-white p-10 flex items-start gap-8">
           <div className="w-16 h-16 bg-red-600 flex items-center justify-center shrink-0">

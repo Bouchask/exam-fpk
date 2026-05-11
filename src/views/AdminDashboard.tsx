@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Users, Calendar, DoorOpen, ArrowUpRight, Target, Layers, MoreVertical, Building2, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Users, Calendar, DoorOpen, Target, Layers, MoreVertical, Save } from "lucide-react";
 import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
