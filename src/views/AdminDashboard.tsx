@@ -36,6 +36,11 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   });
   const [resourceForm, setResourceForm] = useState({
     name: '',
+    code: '',
+    capacity: '',
+    type: 'SALLE',
+    floor: '1',
+    building: 'Main',
   });
 
   // Data state
@@ -407,11 +412,11 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             {
               id: prev.length + 1,
               name: resourceForm.name,
-              code: resourceForm.name.split(' ')[0],
-              capacity: 50,
-              type: 'SALLE',
-              floor: '1',
-              building: 'Main',
+              code: resourceForm.code || resourceForm.name.split(' ')[0],
+              capacity: parseInt(resourceForm.capacity) || 50,
+              type: resourceForm.type || 'SALLE',
+              floor: resourceForm.floor || '1',
+              building: resourceForm.building || 'Main',
               is_active: true,
             }
           ]);
@@ -428,7 +433,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         }
         
         setSuccess('Resource added successfully!');
-        setResourceForm({ name: '' });
+        setResourceForm({ name: '', code: '', capacity: '', type: 'SALLE', floor: '1', building: 'Main' });
         setIsModalOpen(false);
         return;
       }
@@ -437,11 +442,12 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       if (activeTab === "salles") {
         await salleService.create({
           name: resourceForm.name,
-          code: resourceForm.name.split(' ')[0],
-          capacity: 50,
-          type: 'SALLE',
-          floor: '1',
-          building: 'Main',
+          code: resourceForm.code || resourceForm.name.split(' ')[0],
+          capacity: parseInt(resourceForm.capacity) || 0,
+          type: resourceForm.type || 'SALLE',
+          floor: resourceForm.floor || '1',
+          building: resourceForm.building || 'Main',
+          is_active: true,
         });
         fetchSalles();
       } else if (activeTab === "departments") {
@@ -678,22 +684,102 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       default:
         return (
           <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Reference Name</label>
-              <input 
-                type="text" 
-                value={resourceForm.name}
-                onChange={(e) => setResourceForm({...resourceForm, name: e.target.value})}
-                placeholder="ENTER RESOURCE NAME" 
-                className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-              />
-            </div>
+            {activeTab === "salles" ? (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Salle Name</label>
+                  <input 
+                    type="text" 
+                    value={resourceForm.name}
+                    onChange={(e) => setResourceForm({...resourceForm, name: e.target.value})}
+                    placeholder="E.G. AMPHI A" 
+                    className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Salle Code</label>
+                  <input 
+                    type="text" 
+                    value={resourceForm.code}
+                    onChange={(e) => setResourceForm({...resourceForm, code: e.target.value})}
+                    placeholder="E.G. A" 
+                    className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Capacity</label>
+                    <input 
+                      type="number" 
+                      value={resourceForm.capacity}
+                      onChange={(e) => setResourceForm({...resourceForm, capacity: e.target.value})}
+                      placeholder="E.G. 50" 
+                      className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Type</label>
+                    <select 
+                      value={resourceForm.type}
+                      onChange={(e) => setResourceForm({...resourceForm, type: e.target.value})}
+                      className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                      required
+                    >
+                      <option value="SALLE">SALLE</option>
+                      <option value="AMPHI">AMPHI</option>
+                      <option value="LAB">LAB</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Floor</label>
+                    <input 
+                      type="text" 
+                      value={resourceForm.floor}
+                      onChange={(e) => setResourceForm({...resourceForm, floor: e.target.value})}
+                      placeholder="E.G. 1" 
+                      className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Building</label>
+                    <input 
+                      type="text" 
+                      value={resourceForm.building}
+                      onChange={(e) => setResourceForm({...resourceForm, building: e.target.value})}
+                      placeholder="E.G. MAIN" 
+                      className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Department Name</label>
+                  <input 
+                    type="text" 
+                    value={resourceForm.name}
+                    onChange={(e) => setResourceForm({...resourceForm, name: e.target.value})}
+                    placeholder="E.G. COMPUTER SCIENCE" 
+                    className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                    required
+                  />
+                </div>
+              </>
+            )}
             <button 
               type="submit" 
               disabled={isLoading}
               className="w-full bg-app-fg text-white py-4 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all disabled:opacity-50"
             >
-              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> SAVE RESOURCE</>}
+              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> SAVE {activeTab === "salles" ? "SALLE" : "DEPARTMENT"}</>}
             </button>
           </form>
         );
