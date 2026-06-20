@@ -1,10 +1,36 @@
 import { Search, Bell, Settings } from "lucide-react";
+import type { User } from "../../types";
 
 interface TopbarProps {
+  user: User | null;
   userRole: "admin" | "professor";
 }
 
-export const Topbar = ({ userRole }: TopbarProps) => {
+export const Topbar = ({ user, userRole }: TopbarProps) => {
+  // Get user initials for avatar
+  const getInitials = () => {
+    if (user && user.first_name && user.last_name) {
+      return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
+    }
+    return userRole === "admin" ? "AD" : "PR";
+  };
+
+  // Get user display name
+  const getDisplayName = () => {
+    if (user && user.full_name) {
+      return user.full_name;
+    }
+    return userRole === "admin" ? "Administrator" : "Professor";
+  };
+
+  // Get department name
+  const getDepartmentName = () => {
+    if (user && user.institutional_grade) {
+      return user.institutional_grade;
+    }
+    return userRole === "admin" ? "Scolarité Dept" : "Faculty";
+  };
+
   return (
     <header className="h-16 border-b border-app-border bg-white sticky top-0 z-10 flex items-center justify-between px-8">
       <div className="flex items-center gap-4 flex-1 max-w-xl">
@@ -29,14 +55,14 @@ export const Topbar = ({ userRole }: TopbarProps) => {
         <div className="flex items-center gap-3 pl-2">
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-black uppercase tracking-tighter text-app-fg leading-none">
-              {userRole === "admin" ? "Administrator" : "Dr. Sarah Connor"}
+              {getDisplayName()}
             </p>
             <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mt-1">
-              {userRole === "admin" ? "Scolarité Dept" : "CS Department"}
+              {getDepartmentName()}
             </p>
           </div>
           <div className="h-10 w-10 bg-app-fg text-white flex items-center justify-center font-black text-xs">
-            {userRole === "admin" ? "AD" : "SC"}
+            {getInitials()}
           </div>
         </div>
       </div>
