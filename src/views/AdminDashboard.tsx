@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, Calendar, DoorOpen, Target, Layers, MoreVertical, Save, RefreshCcw } from "lucide-react";
+import { Plus, Users, Calendar, DoorOpen, Target, Layers, MoreVertical, Save, RefreshCcw, Edit, Trash2 } from "lucide-react";
 import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
@@ -50,6 +50,8 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [salles, setSalles] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string; is_active: boolean }[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [editingSalle, setEditingSalle] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   
   // Chart data - will be populated from real data
   const [quotaData, setQuotaData] = useState<Array<{ name: string; value: number; color: string }>>([
@@ -407,19 +409,37 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
 
       if (useMockData) {
         if (activeTab === "salles") {
-          setSalles(prev => [
-            ...prev,
-            {
-              id: prev.length + 1,
-              name: resourceForm.name,
-              code: resourceForm.code || resourceForm.name.split(' ')[0],
-              capacity: parseInt(resourceForm.capacity) || 50,
-              type: resourceForm.type || 'SALLE',
-              floor: resourceForm.floor || '1',
-              building: resourceForm.building || 'Main',
-              is_active: true,
-            }
-          ]);
+          if (editingSalle) {
+            setSalles(prev => prev.map(s => 
+              s.id === editingSalle.id 
+                ? {
+                    ...s,
+                    name: resourceForm.name,
+                    code: resourceForm.code || resourceForm.name.split(' ')[0],
+                    capacity: parseInt(resourceForm.capacity) || 50,
+                    type: resourceForm.type || 'SALLE',
+                    floor: resourceForm.floor || '1',
+                    building: resourceForm.building || 'Main',
+                  }
+                : s
+            ));
+            setSuccess('Salle updated successfully!');
+          } else {
+            setSalles(prev => [
+              ...prev,
+              {
+                id: prev.length + 1,
+                name: resourceForm.name,
+                code: resourceForm.code || resourceForm.name.split(' ')[0],
+                capacity: parseInt(resourceForm.capacity) || 50,
+                type: resourceForm.type || 'SALLE',
+                floor: resourceForm.floor || '1',
+                building: resourceForm.building || 'Main',
+                is_active: true,
+              }
+            ]);
+            setSuccess('Salle added successfully!');
+          }
         } else if (activeTab === "departments") {
           setDepartments(prev => [
             ...prev,
@@ -430,25 +450,39 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               staff: 0,
             }
           ]);
+          setSuccess('Department added successfully!');
         }
         
-        setSuccess('Resource added successfully!');
         setResourceForm({ name: '', code: '', capacity: '', type: 'SALLE', floor: '1', building: 'Main' });
+        setEditingSalle(null);
         setIsModalOpen(false);
         return;
       }
 
       // Real API call
       if (activeTab === "salles") {
-        await salleService.create({
-          name: resourceForm.name,
-          code: resourceForm.code || resourceForm.name.split(' ')[0],
-          capacity: parseInt(resourceForm.capacity) || 0,
-          type: resourceForm.type || 'SALLE',
-          floor: resourceForm.floor || '1',
-          building: resourceForm.building || 'Main',
-          is_active: true,
-        });
+        if (editingSalle) {
+          await salleService.update(editingSalle.id, {
+            name: resourceForm.name,
+            code: resourceForm.code || resourceForm.name.split(' ')[0],
+            capacity: parseInt(resourceForm.capacity) || 0,
+            type: resourceForm.type || 'SALLE',
+            floor: resourceForm.floor || '1',
+            building: resourceForm.building || 'Main',
+          });
+          setSuccess('Salle updated successfully!');
+        } else {
+          await salleService.create({
+            name: resourceForm.name,
+            code: resourceForm.code || resourceForm.name.split(' ')[0],
+            capacity: parseInt(resourceForm.capacity) || 0,
+            type: resourceForm.type || 'SALLE',
+            floor: resourceForm.floor || '1',
+            building: resourceForm.building || 'Main',
+            is_active: true,
+          });
+          setSuccess('Salle added successfully!');
+        }
         fetchSalles();
       } else if (activeTab === "departments") {
         await departmentService.create({
@@ -456,14 +490,47 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           staff_count: 0,
         });
         fetchDepartments();
+        setSuccess('Department added successfully!');
       }
       
-      setSuccess('Resource added successfully!');
-      setResourceForm({ name: '' });
+      setResourceForm({ name: '', code: '', capacity: '', type: 'SALLE', floor: '1', building: 'Main' });
+      setEditingSalle(null);
       setIsModalOpen(false);
     } catch (err) {
-      setError('Failed to add resource. Please try again.');
-      console.error('Error adding resource:', err);
+      setError('Failed to save resource. Please try again.');
+      console.error('Error saving resource:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditSalle = (salle: typeof salles[0]) => {
+    setEditingSalle(salle);
+    setResourceForm({
+      name: salle.name,
+      code: salle.code || '',
+      capacity: salle.capacity?.toString() || '',
+      type: salle.type || 'SALLE',
+      floor: salle.floor || '1',
+      building: salle.building || 'Main',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteSalle = async (salleId: number) => {
+    try {
+      setIsLoading(true);
+      if (useMockData) {
+        setSalles(prev => prev.filter(s => s.id !== salleId));
+      } else {
+        await salleService.delete(salleId);
+        fetchSalles();
+      }
+      setSuccess('Salle deleted successfully!');
+      setDeleteConfirmId(null);
+    } catch (err) {
+      setError('Failed to delete salle. Please try again.');
+      console.error('Error deleting salle:', err);
     } finally {
       setIsLoading(false);
     }
@@ -525,7 +592,28 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     { header: "CAPACITY", accessor: "capacity" as const, className: "font-bold text-app-primary" },
     { header: "TYPE", accessor: "type" as const },
     { header: "BUILDING", accessor: "building" as const },
-    { header: "ACTION", accessor: () => <button className="p-1 hover:text-app-primary"><MoreVertical className="w-4 h-4" /></button>, className: "text-right w-12" }
+    { 
+      header: "ACTION", 
+      accessor: (salle: typeof salles[0]) => (
+        <div className="flex gap-2 justify-end">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleEditSalle(salle); }}
+            className="p-1 text-stone-500 hover:text-app-primary transition-colors"
+            title="Edit"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(salle.id); }}
+            className="p-1 text-stone-500 hover:text-red-500 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ), 
+      className: "text-right w-20"
+    }
   ];
 
   const renderForm = () => {
@@ -1033,14 +1121,43 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Confirm Delete"
+      >
+        <div className="p-4">
+          <p className="text-sm font-medium text-stone-600 mb-6">
+            Are you sure you want to delete this Salle? This action cannot be undone.
+          </p>
+          <div className="flex gap-4 justify-end">
+            <button
+              onClick={() => setDeleteConfirmId(null)}
+              className="px-4 py-2 bg-stone-100 border border-stone-200 text-stone-600 text-xs font-bold uppercase tracking-wider hover:bg-stone-200 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => deleteConfirmId && handleDeleteSalle(deleteConfirmId)}
+              disabled={isLoading}
+              className="px-4 py-2 bg-red-500 text-white text-xs font-bold uppercase tracking-wider hover:bg-red-600 transition-all disabled:opacity-50"
+            >
+              {isLoading ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => {
           setIsModalOpen(false);
           setError(null);
           setSuccess(null);
+          setEditingSalle(null);
         }}
-        title={`Add ${activeTab === "overview" ? "Resource" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+        title={`${editingSalle ? 'Edit' : 'Add'} ${activeTab === "overview" ? "Resource" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
       >
         {renderForm()}
         
