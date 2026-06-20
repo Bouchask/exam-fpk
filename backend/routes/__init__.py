@@ -7,6 +7,8 @@ from .salles import salles_bp
 from .assignments import assignments_bp
 from .incidents import incidents_bp
 from .dashboard import dashboard_bp
+from .filieres import filieres_bp
+from .modules import modules_bp
 
 # Register all blueprints
 def register_blueprints(app):
@@ -18,3 +20,5 @@ def register_blueprints(app):
     app.register_blueprint(assignments_bp, url_prefix='/api/assignments')
     app.register_blueprint(incidents_bp, url_prefix='/api/incidents')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+    app.register_blueprint(filieres_bp, url_prefix='/api/filieres')
+    app.register_blueprint(modules_bp, url_prefix='/api/modules')

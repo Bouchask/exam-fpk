@@ -2,7 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import config
-from models import db, User, Professor, Department, Salle, Exam, Assignment, Incident, AssignmentHistory
+from models import db, User, Professor, Department, Salle, Exam, Assignment, Incident, AssignmentHistory, Filier, Module, ProfessorFilier
 from routes import register_blueprints
 from utils.database import init_db
 import os
@@ -29,11 +29,16 @@ def create_app(config_name='default'):
     # JWT callbacks
     @jwt.user_identity_loader
     def user_identity_lookup(user_id):
+        # Ensure identity is always a string
+        if isinstance(user_id, int):
+            return str(user_id)
         return user_id
     
     @jwt.additional_claims_loader
     def add_claims_to_jwt(identity):
-        user = User.query.get(identity)
+        # Convert identity to int for database query
+        user_id = int(identity) if isinstance(identity, str) else identity
+        user = User.query.get(user_id)
         if user:
             return {
                 'role': user.role,

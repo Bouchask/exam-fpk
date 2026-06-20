@@ -12,7 +12,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     role = db.Column(db.String(20), nullable=False)
@@ -66,6 +66,7 @@ class Department(db.Model):
     
     professors = db.relationship('Professor', backref='department', cascade='all, delete-orphan')
     exams = db.relationship('Exam', backref='department', cascade='all, delete-orphan')
+    filieres = db.relationship('Filier', backref='department', cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -77,6 +78,83 @@ class Department(db.Model):
             'code': self.code,
             'created_at': self.created_at.isoformat()
         }
+
+
+class Filier(db.Model):
+    """Field of Study/Filier model - e.g., Computer Science, Mathematics"""
+    __tablename__ = 'filieres'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    code = db.Column(db.String(20), unique=True)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
+    max_modules = db.Column(db.Integer, default=7)
+    description = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    department = db.relationship('Department', backref='filieres')
+    modules = db.relationship('Module', backref='filier', cascade='all, delete-orphan')
+    professors = db.relationship('Professor', secondary='professor_filier', backref='filieres')
+    exams = db.relationship('Exam', backref='filier', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'code': self.code,
+            'department_id': self.department_id,
+            'department_name': self.department.name if self.department else None,
+            'max_modules': self.max_modules,
+            'description': self.description,
+            'is_active': self.is_active,
+            'module_count': len(self.modules) if self.modules else 0,
+            'created_at': self.created_at.isoformat()
+        }
+
+
+class Module(db.Model):
+    """Module/Course model - e.g., Programming, Algorithms"""
+    __tablename__ = 'modules'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    code = db.Column(db.String(20), unique=True)
+    filier_id = db.Column(db.Integer, db.ForeignKey('filieres.id'))
+    credits = db.Column(db.Integer, default=3)
+    hours = db.Column(db.Integer, default=45)
+    description = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    filier = db.relationship('Filier', backref='modules')
+    exams = db.relationship('Exam', backref='module', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'code': self.code,
+            'filier_id': self.filier_id,
+            'filier_name': self.filier.name if self.filier else None,
+            'credits': self.credits,
+            'hours': self.hours,
+            'description': self.description,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat()
+        }
+
+
+class ProfessorFilier(db.Model):
+    """Association table for many-to-many relationship between Professor and Filier"""
+    __tablename__ = 'professor_filier'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    professor_id = db.Column(db.Integer, db.ForeignKey('professors.id'))
+    filier_id = db.Column(db.Integer, db.ForeignKey('filieres.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Professor(db.Model):
@@ -93,9 +171,11 @@ class Professor(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship('User', back_populates='professor_profile')
+    department = db.relationship('Department', backref='professors')
     assignments = db.relationship('Assignment', backref='professor', cascade='all, delete-orphan')
     incidents = db.relationship('Incident', backref='professor', cascade='all, delete-orphan')
     history_records = db.relationship('AssignmentHistory', backref='professor', cascade='all, delete-orphan')
+    filieres = db.relationship('Filier', secondary='professor_filier', backref='professors')
     
     @property
     def quota_status(self):
@@ -162,9 +242,11 @@ class Exam(db.Model):
     __tablename__ = 'exams'
     
     id = db.Column(db.Integer, primary_key=True)
+    module_id = db.Column(db.Integer, db.ForeignKey('modules.id'))
     module = db.Column(db.String(100), nullable=False)
     module_code = db.Column(db.String(20))
-    exam_type = db.Column(db.String(20), nullable=False)
+    exam_type = db.Column(db.String(20), nullable=False, default='NORMAL')  # NORMAL or RATTRAPAGE
+    filier_id = db.Column(db.Integer, db.ForeignKey('filieres.id'))
     date = db.Column(db.Date, nullable=False)
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
@@ -177,6 +259,9 @@ class Exam(db.Model):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    module_obj = db.relationship('Module', backref='exams')
+    filier = db.relationship('Filier', backref='exams')
     
     assignments = db.relationship('Assignment', backref='exam', cascade='all, delete-orphan')
     history_records = db.relationship('AssignmentHistory', backref='exam', cascade='all, delete-orphan')
@@ -192,9 +277,13 @@ class Exam(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'module_id': self.module_id,
             'module': self.module,
             'module_code': self.module_code,
+            'module_obj': Module.query.get(self.module_id).to_dict() if self.module_id else None,
             'exam_type': self.exam_type,
+            'filier_id': self.filier_id,
+            'filier': Filier.query.get(self.filier_id).name if self.filier_id else None,
             'date': self.full_date,
             'time': self.time_range,
             'start_time': self.start_time.strftime('%H:%M'),
@@ -330,10 +419,6 @@ class AssignmentHistory(db.Model):
 
 
 # Initialize database
-def init_db(app):
-    db.init_app(app)
-    with app.app_context():
-        db.create_all()
 
 
 def create_default_users(app):
