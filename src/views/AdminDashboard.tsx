@@ -66,21 +66,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     if (forcedTab) setActiveTab(forcedTab);
   }, [forcedTab]);
 
-  useEffect(() => {
-    if (activeTab === "professors") fetchProfessors();
-    if (activeTab === "exams") fetchExams();
-    if (activeTab === "departments") fetchDepartments();
-    if (activeTab === "salles") fetchSalles();
-    if (activeTab === "overview") fetchDashboardOverview();
-  }, [activeTab, fetchDashboardOverview, fetchProfessors, fetchExams, fetchDepartments, fetchSalles]);
-
-  // Initial fetch for overview when component mounts
-  useEffect(() => {
-    if (forcedTab === "overview" || activeTab === "overview") {
-      fetchDashboardOverview();
-    }
-  }, [forcedTab, activeTab, fetchDashboardOverview]);
-
   // Fetch functions
   const fetchProfessors = useCallback(async () => {
     try {
@@ -236,6 +221,22 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       setIsDashboardLoading(false);
     }
   }, []);
+
+  // Fetch data on tab change (must be after all fetch functions are defined)
+  useEffect(() => {
+    if (activeTab === "professors") fetchProfessors();
+    if (activeTab === "exams") fetchExams();
+    if (activeTab === "departments") fetchDepartments();
+    if (activeTab === "salles") fetchSalles();
+    if (activeTab === "overview") fetchDashboardOverview();
+  }, [activeTab, fetchDashboardOverview, fetchProfessors, fetchExams, fetchDepartments, fetchSalles]);
+
+  // Initial fetch for overview when component mounts
+  useEffect(() => {
+    if (forcedTab === "overview" || activeTab === "overview") {
+      fetchDashboardOverview();
+    }
+  }, [forcedTab, activeTab, fetchDashboardOverview]);
 
   // Form submit handlers
   const handleProfessorSubmit = async () => {
