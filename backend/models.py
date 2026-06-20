@@ -221,7 +221,7 @@ class Salle(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    exams = db.relationship('Exam', backref='salle', cascade='all, delete-orphan')
+    exams = db.relationship('Exam', back_populates='salle', cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -262,6 +262,8 @@ class Exam(db.Model):
     
     module_obj = db.relationship('Module', back_populates='exams')
     filier = db.relationship('Filier', back_populates='exams')
+    salle = db.relationship('Salle', back_populates='exams')
+    department = db.relationship('Department', back_populates='exams')
     
     assignments = db.relationship('Assignment', back_populates='exam', cascade='all, delete-orphan')
     history_records = db.relationship('AssignmentHistory', back_populates='exam', cascade='all, delete-orphan')
@@ -318,6 +320,8 @@ class Assignment(db.Model):
         db.UniqueConstraint('professor_id', 'exam_id', name='unique_assignment'),
     )
     
+    professor = db.relationship('Professor', back_populates='assignments')
+    exam = db.relationship('Exam', back_populates='assignments')
     incidents = db.relationship('Incident', back_populates='assignment', cascade='all, delete-orphan')
     history = db.relationship('AssignmentHistory', back_populates='assignment', cascade='all, delete-orphan')
     
@@ -359,7 +363,12 @@ class Incident(db.Model):
     related_exam_id = db.Column(db.Integer, db.ForeignKey('exams.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
+    professor = db.relationship('Professor', back_populates='incidents')
+    assignment = db.relationship('Assignment', back_populates='incidents')
+    related_exam = db.relationship('Exam', foreign_keys=[related_exam_id])
+    resolver = db.relationship('User', foreign_keys=[resolved_by])
+
     def to_dict(self):
         prof = Professor.query.get(self.professor_id)
         assignment = Assignment.query.get(self.assignment_id) if self.assignment_id else None
@@ -397,7 +406,11 @@ class AssignmentHistory(db.Model):
     report_path = db.Column(db.String(255))
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
+    assignment = db.relationship('Assignment', back_populates='history')
+    professor = db.relationship('Professor', back_populates='history_records')
+    exam = db.relationship('Exam', back_populates='history_records')
+
     def to_dict(self):
         professor = Professor.query.get(self.professor_id)
         exam = Exam.query.get(self.exam_id)
