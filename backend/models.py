@@ -64,9 +64,9 @@ class Department(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    professors = db.relationship('Professor', backref='department', cascade='all, delete-orphan')
-    exams = db.relationship('Exam', backref='department', cascade='all, delete-orphan')
-    filieres = db.relationship('Filier', backref='department', cascade='all, delete-orphan')
+    professors = db.relationship('Professor', back_populates='department', cascade='all, delete-orphan')
+    exams = db.relationship('Exam', back_populates='department', cascade='all, delete-orphan')
+    filieres = db.relationship('Filier', back_populates='department', cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -94,10 +94,10 @@ class Filier(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    department = db.relationship('Department', backref='filieres')
-    modules = db.relationship('Module', backref='filier', cascade='all, delete-orphan')
-    professors = db.relationship('Professor', secondary='professor_filier', backref='filieres')
-    exams = db.relationship('Exam', backref='filier', cascade='all, delete-orphan')
+    department = db.relationship('Department', back_populates='filieres')
+    modules = db.relationship('Module', back_populates='filier', cascade='all, delete-orphan')
+    professors = db.relationship('Professor', secondary='professor_filier', back_populates='filieres')
+    exams = db.relationship('Exam', back_populates='filier', cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -129,8 +129,8 @@ class Module(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    filier = db.relationship('Filier', backref='modules')
-    exams = db.relationship('Exam', backref='module', cascade='all, delete-orphan')
+    filier = db.relationship('Filier', back_populates='modules')
+    exams = db.relationship('Exam', back_populates='module_obj', cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -171,11 +171,11 @@ class Professor(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship('User', back_populates='professor_profile')
-    department = db.relationship('Department', backref='professors')
-    assignments = db.relationship('Assignment', backref='professor', cascade='all, delete-orphan')
-    incidents = db.relationship('Incident', backref='professor', cascade='all, delete-orphan')
-    history_records = db.relationship('AssignmentHistory', backref='professor', cascade='all, delete-orphan')
-    filieres = db.relationship('Filier', secondary='professor_filier', backref='professors')
+    department = db.relationship('Department', back_populates='professors')
+    assignments = db.relationship('Assignment', back_populates='professor', cascade='all, delete-orphan')
+    incidents = db.relationship('Incident', back_populates='professor', cascade='all, delete-orphan')
+    history_records = db.relationship('AssignmentHistory', back_populates='professor', cascade='all, delete-orphan')
+    filieres = db.relationship('Filier', secondary='professor_filier', back_populates='professors')
     
     @property
     def quota_status(self):
@@ -260,11 +260,11 @@ class Exam(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    module_obj = db.relationship('Module', backref='exams')
-    filier = db.relationship('Filier', backref='exams')
+    module_obj = db.relationship('Module', back_populates='exams')
+    filier = db.relationship('Filier', back_populates='exams')
     
-    assignments = db.relationship('Assignment', backref='exam', cascade='all, delete-orphan')
-    history_records = db.relationship('AssignmentHistory', backref='exam', cascade='all, delete-orphan')
+    assignments = db.relationship('Assignment', back_populates='exam', cascade='all, delete-orphan')
+    history_records = db.relationship('AssignmentHistory', back_populates='exam', cascade='all, delete-orphan')
     
     @property
     def time_range(self):
@@ -318,8 +318,8 @@ class Assignment(db.Model):
         db.UniqueConstraint('professor_id', 'exam_id', name='unique_assignment'),
     )
     
-    incidents = db.relationship('Incident', backref='assignment', cascade='all, delete-orphan')
-    history = db.relationship('AssignmentHistory', backref='assignment', cascade='all, delete-orphan')
+    incidents = db.relationship('Incident', back_populates='assignment', cascade='all, delete-orphan')
+    history = db.relationship('AssignmentHistory', back_populates='assignment', cascade='all, delete-orphan')
     
     def to_dict(self):
         prof = Professor.query.get(self.professor_id)
