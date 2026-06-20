@@ -46,7 +46,7 @@ def get_admin_overview():
     departments = Department.query.all()
     dept_exam_load = []
     for dept in departments:
-        exam_count = dept.exams.count()
+        exam_count = len(dept.exams) if dept.exams else 0
         if exam_count > 0:
             dept_exam_load.append({
                 'name': dept.code if dept.code else dept.name[:4],
@@ -161,7 +161,7 @@ def get_admin_stats():
     dept_stats = []
     for dept in departments:
         professors_count = Professor.query.filter_by(department_id=dept.id).count()
-        exams_count = dept.exams.count()
+        exams_count = len(dept.exams) if dept.exams else 0
         assignments_count = Assignment.query.filter(
             Assignment.professor_id.in_([p.id for p in Professor.query.filter_by(department_id=dept.id).all()])
         ).count()
