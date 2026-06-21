@@ -11,6 +11,8 @@ import type {
   AssignmentHistory,
   User,
   DashboardOverview,
+  Filier,
+  Module,
   ApiResponse,
   PaginatedResponse,
 } from '../types';

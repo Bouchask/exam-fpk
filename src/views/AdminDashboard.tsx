@@ -8,11 +8,11 @@ import { professorService, examService, departmentService, salleService, authSer
 import type { Professor, Exam, Department, Salle, DashboardOverview } from "../types";
 
 interface AdminDashboardProps {
-  forcedTab?: "overview" | "professors" | "exams" | "salles" | "departments";
+  forcedTab?: "overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules";
 }
 
 export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
-  const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments">(forcedTab || "overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(forcedTab || "overview");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

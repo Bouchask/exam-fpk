@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "./components/layout/Layout";
 import { AdminDashboard } from "./views/AdminDashboard";
 import { AssignmentEngine } from "./views/AssignmentEngine";
+import { FilierModuleManagement } from "./views/FilierModuleManagement";
 import { ProfessorPortal } from "./views/ProfessorPortal";
 import { ProfessorHistory } from "./views/ProfessorHistory";
 import { ProfessorIncidents } from "./views/ProfessorIncidents";
@@ -57,6 +58,9 @@ function App() {
         return <AdminDashboard forcedTab="professors" />;
       case "departments":
         return <AdminDashboard forcedTab="departments" />;
+      case "filieres":
+      case "modules":
+        return <FilierModuleManagement />;
       case "engine":
         return <AssignmentEngine />;
       
@@ -74,7 +78,7 @@ function App() {
   };
 
   return (
-    <Layout activeView={currentView} userRole={userRole}>
+    <Layout activeView={currentView} user={user} userRole={userRole}>
       <div className="mb-8 flex items-center justify-between border-b-2 border-stone-100 pb-6 md:hidden">
         <select 
           value={currentView} 
@@ -88,6 +92,7 @@ function App() {
               <option value="exams">EXAMS</option>
               <option value="staff">STAFF</option>
               <option value="departments">DEPARTMENTS</option>
+              <option value="filieres">FILIERES & MODULES</option>
               <option value="engine">ASSIGNMENT ENGINE</option>
             </>
           ) : (
