@@ -169,11 +169,10 @@ def refresh_token():
 
 
 @auth_bp.route('/logout', methods=['POST'])
-@jwt_required()
 def logout():
-    """Logout - Add token to blocklist"""
-    # In a production app, you would add the token to a blocklist
-    # For this implementation, we just return success
+    """Logout - Clear session (no auth required)"""
+    # Logout doesn't require authentication - we just return success
+    # The frontend will clear its own token storage
     return success_response(None, 'Logged out successfully')
 
 

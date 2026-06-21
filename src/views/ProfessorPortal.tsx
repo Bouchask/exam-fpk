@@ -2,11 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Clock, MapPin, BookOpen, Settings, Save, Mail, Lock, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { cn } from "../utils/cn";
 import { Modal } from "../components/ui/Modal";
-import { professorService } from "../services/professorService";
-import { moduleService } from "../services/moduleService";
-import { examService } from "../services/examService";
-import { assignmentService } from "../services/assignmentService";
-import { authService } from "../services/authService";
+import { professorService, examService, moduleService, assignmentService, authService, useMockData } from "../services";
 import type { Module, Exam, Assignment, Professor } from "../types";
 import type { User } from "../types";
 
@@ -158,8 +154,15 @@ export const ProfessorPortal = () => {
     }
   }, []);
 
+  // Polling for real-time updates every 30 seconds
   useEffect(() => {
     fetchProfessorData();
+    
+    const intervalId = setInterval(() => {
+      fetchProfessorData();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, [fetchProfessorData]);
 
   const toggleModuleExpand = (moduleId: number) => {
@@ -254,18 +257,20 @@ export const ProfessorPortal = () => {
   };
 
   // Get exams for a specific module
-  const getExamsForModule = (moduleId: number): Exam[] => {
+  const getExamsForModule = (moduleId: number | undefined): Exam[] => {
+    if (!moduleId) return [];
     return dashboardData.exams.filter(e => e.module_id === moduleId);
   };
 
   // Get exam by ID
-  const getExamById = (examId: number): Exam | undefined => {
+  const getExamById = (examId: number | undefined): Exam | undefined => {
+    if (!examId) return undefined;
     return dashboardData.exams.find(e => e.id === examId);
   };
 
   // Calculate quota percentage
   const getQuotaPercentage = (): number => {
-    if (dashboardData.professor) {
+    if (dashboardData.professor && dashboardData.professor.max_guards > 0) {
       return (dashboardData.professor.completed_guards / dashboardData.professor.max_guards) * 100;
     }
     return 0;
@@ -310,7 +315,7 @@ export const ProfessorPortal = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b-4 border-app-fg pb-10">
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <span className="bg-app-primary text-white text-[10px] font-black px-3 py-1 uppercase tracking-widest">Faculty Member</span>
+            <span className="bg-app-primary text-white text-[10px] font-black px-3 py-1 uppercase tracking-widest">Professor</span>
             <span className="text-stone-300 text-[10px] font-black uppercase tracking-widest">S2-2026 SESSION</span>
           </div>
           <h1 className="text-5xl font-black tracking-tighter text-app-fg uppercase leading-none">
@@ -389,6 +394,7 @@ export const ProfessorPortal = () => {
             <div className="space-y-0 border border-stone-200 shadow-none">
               {dashboardData.modules.length > 0 ? (
                 dashboardData.modules.map((module) => {
+                  if (!module || !module.id) return null;
                   const moduleExams = getExamsForModule(module.id);
                   const isExpanded = expandedModule === module.id;
                   
