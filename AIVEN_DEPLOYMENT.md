@@ -43,6 +43,8 @@ venv\Scripts\activate
 ```bash
 cd backend
 pip install -r requirements.txt
+# Also install psycopg2 for PostgreSQL support
+pip install psycopg2-binary
 cd ..
 ```
 
