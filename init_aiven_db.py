@@ -6,6 +6,7 @@ Simple and reliable - checks if data exists before inserting
 import os
 import sys
 from sqlalchemy import create_engine, text
+from werkzeug.security import generate_password_hash
 
 # Aiven.io Database Configuration
 AIVEN_DB_URL = os.getenv('DATABASE_URL', 
@@ -53,7 +54,7 @@ def create_database():
                         id SERIAL PRIMARY KEY,
                         username VARCHAR(80) UNIQUE NOT NULL,
                         email VARCHAR(120) UNIQUE NOT NULL,
-                        password_hash VARCHAR(128) NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
                         first_name VARCHAR(80) NOT NULL,
                         last_name VARCHAR(80) NOT NULL,
                         full_name VARCHAR(160) NOT NULL,
@@ -267,12 +268,15 @@ def create_database():
                 """))
                 connection.commit()
                 
-                # Users
-                connection.execute(text("""
+                # Users - Generate proper password hashes
+                admin_hash = generate_password_hash('admin')
+                prof_hash = generate_password_hash('prof')
+                
+                connection.execute(text(f"""
                     INSERT INTO users (username, email, password_hash, first_name, last_name, full_name, role, institutional_grade, is_active) 
                     VALUES 
-                        ('admin', 'admin@fpk.edu', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Admin', 'System', 'Admin System', 'admin', 'ADMIN', TRUE),
-                        ('prof', 'prof@fpk.edu', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Sarah', 'Connor', 'Sarah Connor', 'professor', 'PR', TRUE)
+                        ('admin', 'admin@fpk.edu', '{admin_hash}', 'Admin', 'System', 'Admin System', 'admin', 'ADMIN', TRUE),
+                        ('prof', 'prof@fpk.edu', '{prof_hash}', 'Sarah', 'Connor', 'Sarah Connor', 'professor', 'PR', TRUE)
                     ON CONFLICT (username) DO NOTHING;
                 """))
                 connection.commit()
