@@ -75,7 +75,7 @@ export const ProfessorPortal = () => {
       const allProfessorsList: Professor[] = allProfessors;
       
       // Use professor.id if available, otherwise fall back to user.id
-      const professorId = professor?.id || currentUser.id;
+      const profId = professor?.id || currentUser.id;
       
       // Get all exams with full details
       const allExamsResponse = await examService.getAll();
@@ -90,13 +90,13 @@ export const ProfessorPortal = () => {
         : [];
       
       // Get modules taught by this professor (direct assignment)
-      const directModules: Module[] = allModules.filter(m => m.professor_id === professorId);
+      const directModules: Module[] = allModules.filter(m => m.professor_id === profId);
       
       // Get exams where this professor is associated (via associated_professors or module professor)
       const examsWithProfessor: Exam[] = allExams.filter(e => 
-        e.associated_professors?.some((p: any) => p.id === professorId) || 
-        (e.module_obj as any)?.professor_id === professorId ||
-        e.module_id && allModules.some(m => m.id === e.module_id && m.professor_id === professorId)
+        e.associated_professors?.some((p: any) => p.id === profId) || 
+        (e.module_obj as any)?.professor_id === profId ||
+        e.module_id && allModules.some(m => m.id === e.module_id && m.professor_id === profId)
       );
       
       // Get modules from exams where professor is associated
@@ -418,7 +418,7 @@ export const ProfessorPortal = () => {
                               <h4 className="font-black text-lg text-app-fg uppercase tracking-tight leading-tight">
                                 {module.name || 'Unnamed Module'} {module.code && `(${module.code})`}
                               </h4>
-                              {module.professor_id === professorId && (
+                              {module.professor_id === dashboardData.professor?.id && (
                                 <span className="text-xs bg-green-600 text-white px-2 py-0.5 font-black uppercase tracking-wider">YOU</span>
                               )}
                             </div>
