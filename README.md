@@ -943,9 +943,9 @@ This project is proprietary software developed for academic purposes at FPK Khou
 For questions or support, please contact:
 
 **Yahya Bouchak**
-- Email: yahya.bouchak@student.fpk.edu (example - update with actual email)
+- Email: mr.bouchakyahya@gmail.com
 - GitHub: [Bouchask](https://github.com/Bouchask)
-- LinkedIn: [linkedin.com/in/yahya-bouchak](https://linkedin.com/in/yahya-bouchak) (update with actual profile)
+- LinkedIn: [linkedin.com/in/yahya-bouchak](https://linkedin.com/in/yahya-bouchak) 
 
 ---
 
