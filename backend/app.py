@@ -3,7 +3,6 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import config
 from models import db, User, Professor, Department, Salle, Exam, Assignment, Incident, AssignmentHistory, Filier, Module, ProfessorFilier
-from models import create_default_users as models_create_default_users
 from routes import register_blueprints
 from utils.database import init_db
 import os
@@ -27,11 +26,11 @@ def create_app(config_name='default'):
     # Initialize database
     init_db(app)
     
-    # Create default users
-    models_create_default_users(app)
-    
     # Register blueprints
     register_blueprints(app)
+    
+    # Create default users
+    create_default_users()
     
     # JWT callbacks
     @jwt.user_identity_loader

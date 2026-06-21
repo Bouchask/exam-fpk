@@ -49,7 +49,7 @@ def get_admin_overview():
         exam_count = len(dept.exams) if dept.exams else 0
         if exam_count > 0:
             dept_exam_load.append({
-                'name': dept.code if dept.code else dept.name[:4],
+                'name': dept.name,
                 'value': exam_count
             })
     

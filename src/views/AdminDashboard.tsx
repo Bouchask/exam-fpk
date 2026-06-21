@@ -1784,35 +1784,46 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                   label: "Active Professors", 
                   value: dashboardData?.stats?.active_professors?.toString() || "0", 
                   icon: Users, 
-                  trend: "+2" 
+                  trend: "+2",
+                  subtitle: "Total staff"
                 },
                 { 
                   label: "Scheduled Exams", 
                   value: dashboardData?.stats?.scheduled_exams?.toString() || "0", 
                   icon: Calendar, 
-                  trend: "+12%" 
+                  trend: "+12%",
+                  subtitle: "Upcoming"
                 },
                 { 
                   label: "Total Salles", 
                   value: dashboardData?.stats?.total_salles?.toString() || "0", 
                   icon: DoorOpen, 
-                  trend: "0" 
+                  trend: "0",
+                  subtitle: "Rooms available"
                 },
                 { 
                   label: "Allocation Rate", 
                   value: dashboardData?.stats?.allocation_rate || "0%", 
                   icon: Target, 
-                  trend: "STABLE" 
+                  trend: "STABLE",
+                  subtitle: "Assignment rate"
                 },
               ].map((stat, i) => (
-                <div key={i} className="p-8 bg-white border-r border-stone-200 last:border-r-0">
+                <div key={i} className="p-8 bg-white border-r border-stone-200 last:border-r-0 hover:bg-stone-50 transition-colors duration-200">
                   <div className="flex justify-between items-start">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{stat.label}</p>
-                    <stat.icon className="w-4 h-4 text-app-primary" />
+                    <div>
+                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{stat.label}</p>
+                      <p className="text-[8px] text-stone-300 uppercase tracking-widest mt-1">{stat.subtitle}</p>
+                    </div>
+                    <div className="p-1.5 bg-stone-100 rounded-sm border border-stone-200">
+                      <stat.icon className="w-4 h-4 text-app-primary" />
+                    </div>
                   </div>
                   <div className="mt-4 flex items-baseline gap-4">
                      <h3 className="text-3xl font-black text-app-fg">{stat.value}</h3>
-                     <span className="text-[9px] font-black text-stone-300 uppercase">{stat.trend}</span>
+                     <span className={`text-[9px] font-black uppercase ${stat.trend.includes('+') ? 'text-green-600' : stat.trend.includes('%') ? 'text-green-600' : 'text-stone-400'}`}>
+                       {stat.trend}
+                     </span>
                   </div>
                 </div>
               ))}
@@ -1820,60 +1831,193 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white border border-stone-200 p-10">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-app-fg mb-10">Staff Quota Distribution</h4>
+            {/* Staff Quota Distribution Chart - Donut with Center Label */}
+            <div className="bg-white border border-stone-200 p-6 min-h-[550px]">
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-app-fg mb-6">Staff Quota Distribution</h4>
               {isDashboardLoading ? (
-                <div className="h-[300px] w-full flex items-center justify-center">
+                <div className="h-[500px] w-full flex items-center justify-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-primary"></div>
                 </div>
+              ) : quotaData.length === 0 ? (
+                <div className="h-[500px] w-full flex items-center justify-center">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">No quota data available</p>
+                </div>
               ) : (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <div className="h-[500px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={400} minHeight={500}>
                     <PieChart>
                       <Pie 
                         data={quotaData} 
                         cx="50%" 
                         cy="50%" 
-                        innerRadius={80} 
-                        outerRadius={120} 
+                        innerRadius="55%" 
+                        outerRadius="85%"
                         dataKey="value" 
                         stroke="none"
-                        label={({ name, percent }) => percent > 0.05 ? name : ''}
+                        label={false}
+                        nameKey="name"
                       >
                         {quotaData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                        <text 
+                          x="50%" y="45%" textAnchor="middle" dominantBaseline="middle"
+                          className="text-[16px] font-black fill-stone-800"
+                        >
+                          Total Staff
+                        </text>
+                        <text 
+                          x="50%" y="57%" textAnchor="middle" dominantBaseline="middle"
+                          className="text-[28px] font-black fill-app-primary"
+                        >
+                          {quotaData.reduce((sum, item) => sum + item.value, 0)}
+                        </text>
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: '#1a1210', border: 'none', color: '#fff', fontSize: '10px', fontWeight: '900' }} />
-                      <Legend verticalAlign="bottom" align="center" iconType="rect" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-2">{value}</span>} />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: '#1a1210', 
+                          border: 'none', 
+                          color: '#fff', 
+                          fontSize: '12px', 
+                          fontWeight: '900',
+                          padding: '16px',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        }}
+                        itemStyle={{ padding: 0, margin: 0 }}
+                        formatter={(value, name, props) => {
+                          const total = quotaData.reduce((sum, item) => sum + item.value, 0);
+                          const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : 0;
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-white font-black text-[11px] uppercase">{name}</div>
+                              <div className="text-stone-300 text-[10px]">
+                                {value} professors ({percentage}%)
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        align="center" 
+                        layout="horizontal"
+                        wrapperStyle={{
+                          paddingTop: '30px', 
+                          overflowX: 'auto',
+                          overflowY: 'hidden',
+                          maxHeight: '120px',
+                          width: '100%'
+                        }}
+                        iconType="circle"
+                        iconSize={10}
+                        formatter={(value) => (
+                          <span 
+                            className="text-[11px] font-black uppercase tracking-wider text-stone-700 cursor-pointer hover:text-app-primary transition-colors whitespace-nowrap px-2"
+                            style={{ display: 'inline-block' }}
+                          >
+                            {value}
+                          </span>
+                        )}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
               )}
             </div>
 
-            <div className="bg-white border border-stone-200 p-10">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-app-fg mb-10">Departmental Exam Load</h4>
+            {/* Departmental Exam Load Chart - Pie with Labels */}
+            <div className="bg-white border border-stone-200 p-6 min-h-[550px]">
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-app-fg mb-6">Departmental Exam Load</h4>
               {isDashboardLoading ? (
-                <div className="h-[300px] w-full flex items-center justify-center">
+                <div className="h-[500px] w-full flex items-center justify-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-app-primary"></div>
                 </div>
+              ) : deptData.length === 0 ? (
+                <div className="h-[500px] w-full flex items-center justify-center">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">No department data available</p>
+                </div>
               ) : (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <div className="h-[500px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={400} minHeight={500}>
                     <PieChart>
                       <Pie 
                         data={deptData} 
                         cx="50%" 
                         cy="50%" 
-                        outerRadius={120} 
+                        outerRadius="80%"
                         dataKey="value" 
                         stroke="#fff" 
                         strokeWidth={2}
-                        label={({ name, percent }) => percent > 0.05 ? name : ''}
+                        label={({ name, percent, value, index }) => {
+                          // Only show labels for larger slices to avoid overlap
+                          if (percent > 0.12) {
+                            // Truncate long names for display on chart
+                            const displayName = name.length > 15 ? `${name.substring(0, 12)}...` : name;
+                            return displayName;
+                          }
+                          return '';
+                        }}
+                        labelStyle={{
+                          fontSize: '12px', 
+                          fontWeight: '900',
+                          fill: '#ffffff',
+                          fontFamily: 'inherit',
+                          textShadow: '0 0 3px rgba(0,0,0,0.7)'
+                        }}
+                        nameKey="name"
                       >
                         {deptData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: '#1a1210', border: 'none', color: '#fff', fontSize: '10px', fontWeight: '900' }} />
-                      <Legend verticalAlign="bottom" align="center" iconType="rect" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-2">{value}</span>} />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: '#1a1210', 
+                          border: 'none', 
+                          color: '#fff', 
+                          fontSize: '12px', 
+                          fontWeight: '900',
+                          padding: '16px',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        }}
+                        itemStyle={{ padding: 0, margin: 0 }}
+                        formatter={(value, name, props) => {
+                          const total = deptData.reduce((sum, item) => sum + item.value, 0);
+                          const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : 0;
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-white font-black text-[11px] uppercase">{name}</div>
+                              <div className="text-stone-300 text-[10px]">
+                                {value} exams ({percentage}%)
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        align="center" 
+                        layout="horizontal"
+                        wrapperStyle={{
+                          paddingTop: '30px', 
+                          overflowX: 'auto',
+                          overflowY: 'hidden',
+                          maxHeight: '120px',
+                          width: '100%'
+                        }}
+                        iconType="circle"
+                        iconSize={10}
+                        formatter={(value, entry, index) => (
+                          <div className="flex flex-col items-center min-w-[120px] px-2">
+                            <span 
+                              className="text-[10px] font-black uppercase tracking-wider text-stone-700 whitespace-nowrap"
+                            >
+                              {value}
+                            </span>
+                            <span className="text-[9px] text-stone-400">
+                              {entry.payload.value} exams
+                            </span>
+                          </div>
+                        )}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
