@@ -13,8 +13,10 @@ import type { User } from "../types";
 interface ProfessorDashboardData {
   professor: Professor | null;
   user: User | null;
+  allProfessors: Professor[];
   modules: Module[];
   exams: Exam[];
+  allExams: Exam[];
   guardAssignments: Assignment[];
   isLoading: boolean;
   error: string | null;
@@ -29,8 +31,10 @@ export const ProfessorPortal = () => {
   const [dashboardData, setDashboardData] = useState<ProfessorDashboardData>({
     professor: null,
     user: null,
+    allProfessors: [],
     modules: [],
     exams: [],
+    allExams: [],
     guardAssignments: [],
     isLoading: true,
     error: null
@@ -67,36 +71,54 @@ export const ProfessorPortal = () => {
         : [];
       const professor = allProfessors.find((p: any) => p.user_id === currentUser.id || p.id === currentUser.id) || null;
       
-      // Get modules taught by this professor
-      const modulesResponse = await moduleService.getByProfessor(currentUser.id);
-      let modules: Module[] = modulesResponse.success && modulesResponse.data 
-        ? (Array.isArray(modulesResponse.data) ? modulesResponse.data : (modulesResponse.data as any).data || []) 
-        : [];
+      // Get all professors for reference
+      const allProfessorsList: Professor[] = allProfessors;
       
-      // Also get all exams to find modules where professor is associated
+      // Get all exams with full details
       const allExamsResponse = await examService.getAll();
       const allExams: Exam[] = allExamsResponse.success && allExamsResponse.data 
         ? (Array.isArray(allExamsResponse.data) ? allExamsResponse.data : (allExamsResponse.data as any).data || []) 
         : [];
       
-      // Get modules from exams where professor is associated
-      const examsWithProfessor = allExams.filter(e => 
+      // Get all modules
+      const allModulesResponse = await moduleService.getAll(1, 100);
+      const allModules: Module[] = allModulesResponse.success && allModulesResponse.data
+        ? (Array.isArray(allModulesResponse.data) ? allModulesResponse.data : (allModulesResponse.data as any).data || [])
+        : [];
+      
+      // Get modules taught by this professor (direct assignment)
+      const directModules: Module[] = allModules.filter(m => m.professor_id === currentUser.id);
+      
+      // Get exams where this professor is associated (via associated_professors or module professor)
+      const examsWithProfessor: Exam[] = allExams.filter(e => 
         e.associated_professors?.some((p: any) => p.id === currentUser.id) || 
-        (e.module_obj as any)?.professor_id === currentUser.id
+        (e.module_obj as any)?.professor_id === currentUser.id ||
+        e.module_id && allModules.some(m => m.id === e.module_id && m.professor_id === currentUser.id)
       );
       
-      // Get unique modules from these exams
-      const examModules: Module[] = examsWithProfessor
-        .map(e => e.module_obj as Module)
-        .filter((m, index, self) => m && index === self.findIndex((other: any) => (other as any)?.id === (m as any)?.id))
-        .filter(Boolean) as Module[];
+      // Get modules from exams where professor is associated
+      const examModuleIds = new Set<number>();
+      examsWithProfessor.forEach(e => {
+        if (e.module_id) examModuleIds.add(e.module_id);
+        if (e.module_obj?.id) examModuleIds.add(e.module_obj.id);
+      });
       
-      // Combine modules from both sources
-      modules = [...modules, ...examModules];
+      const associatedModules: Module[] = allModules.filter(m => examModuleIds.has(m.id));
       
-      // Get exams for these modules
+      // Combine modules from both sources and remove duplicates
+      const moduleIds = new Set<number>();
+      const combinedModules: Module[] = [...directModules, ...associatedModules]
+        .filter(m => {
+          if (m.id && !moduleIds.has(m.id)) {
+            moduleIds.add(m.id);
+            return true;
+          }
+          return false;
+        });
+      
+      // Get exams for these modules (all exams, not just those with professor)
       let exams: Exam[] = [];
-      for (const module of modules) {
+      for (const module of combinedModules) {
         if (module.id) {
           const examResponse = await examService.getByModule(module.id);
           if (examResponse.success && examResponse.data) {
@@ -108,38 +130,19 @@ export const ProfessorPortal = () => {
         }
       }
       
-      // Also include exams from the allExams that have this professor associated
-      exams = [...exams, ...examsWithProfessor.filter(e => !exams.some(ex => ex.id === e.id))];
-      
       // Get assignments where this professor is a guard
       const assignmentsResponse = await assignmentService.getByProfessor(currentUser.id);
       const guardAssignments: Assignment[] = assignmentsResponse.success && assignmentsResponse.data
         ? (Array.isArray(assignmentsResponse.data) ? assignmentsResponse.data : (assignmentsResponse.data as any).data || []) 
         : [];
       
-      // Get full exam details for guard assignments
-      const guardExamIds = guardAssignments.map(a => a.exam_id);
-      const guardExamsResponse = await Promise.all(
-        guardExamIds.map(id => examService.getById(id))
-      );
-      const guardExams: Exam[] = guardExamsResponse
-        .filter(r => r.success && r.data)
-        .map(r => {
-          const d = r.data;
-          if (Array.isArray(d)) return d[0];
-          if ((d as any).data && Array.isArray((d as any).data)) return (d as any).data[0];
-          return d as Exam;
-        })
-        .filter(Boolean) as Exam[];
-      
-      // Merge guard exams with regular exams
-      exams = [...exams, ...guardExams.filter(e => !exams.some(ex => ex.id === e.id))];
-      
       setDashboardData({
         professor,
         user: currentUser,
-        modules,
+        allProfessors: allProfessorsList,
+        modules: combinedModules,
         exams,
+        allExams,
         guardAssignments,
         isLoading: false,
         error: null
@@ -408,9 +411,14 @@ export const ProfessorPortal = () => {
                             <BookOpen className="w-6 h-6" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-black text-lg text-app-fg uppercase tracking-tight leading-tight">
-                              {module.name || 'Unnamed Module'} {module.code && `(${module.code})`}
-                            </h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-black text-lg text-app-fg uppercase tracking-tight leading-tight">
+                                {module.name || 'Unnamed Module'} {module.code && `(${module.code})`}
+                              </h4>
+                              {module.professor_id === dashboardData.user?.id && (
+                                <span className="text-xs bg-green-600 text-white px-2 py-0.5 font-black uppercase tracking-wider">YOU</span>
+                              )}
+                            </div>
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-2">
                               {module.filier_name || 'Not specified'}
                             </p>
@@ -438,6 +446,11 @@ export const ProfessorPortal = () => {
                                     <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mt-1">
                                       {exam.date || 'TBD'}
                                     </p>
+                                    {exam.associated_professors && exam.associated_professors.length > 0 && (
+                                      <p className="text-[8px] font-bold text-app-primary uppercase tracking-wider mt-1">
+                                        Associated: {exam.associated_professors.map((p: any) => p.name || `Prof #${p.id}`).join(', ')}
+                                      </p>
+                                    )}
                                   </div>
                                   <div className="text-right">
                                     <p className="text-[10px] font-black text-app-fg uppercase tracking-wider">
