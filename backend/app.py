@@ -30,7 +30,6 @@ def create_app(config_name='default'):
     register_blueprints(app)
     
     # Create default users
-    create_default_users()
     
     # JWT callbacks
     @jwt.user_identity_loader
@@ -153,7 +152,10 @@ def create_app(config_name='default'):
                         db.session.add(dept)
                 db.session.commit()
                 print("Default departments created")
-    
+
+    # Create default users
+    create_default_users()
+
     return app
 
 
