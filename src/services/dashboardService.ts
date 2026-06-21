@@ -8,17 +8,16 @@ import type {
   ProfessorDashboardOverview,
   CalendarEvent,
   ApiResponse,
-  PaginatedResponse,
   Exam,
   Incident,
   Assignment,
 } from '../types';
 import { 
   mockDashboardOverview, 
-  createSuccessResponse,
   mockExams,
   mockAssignments,
-  mockIncidents 
+  mockIncidents,
+  createSuccessResponse 
 } from './mockData';
 
 const DASHBOARD_ENDPOINTS = {
@@ -85,7 +84,7 @@ export const dashboardService = {
     if (useMockData) {
       const calendarEvents = mockExams.map(exam => ({
         id: exam.id,
-        title: exam.module,
+        title: exam.module || 'Exam',
         start: new Date(`${exam.date}T${exam.start_time}`).toISOString(),
         end: new Date(`${exam.date}T${exam.end_time}`).toISOString(),
         allDay: false,
@@ -103,7 +102,7 @@ export const dashboardService = {
       console.warn('Backend not available for exam calendar, using mock data');
       const calendarEvents = mockExams.map(exam => ({
         id: exam.id,
-        title: exam.module,
+        title: exam.module || 'Exam',
         start: new Date(`${exam.date}T${exam.start_time}`).toISOString(),
         end: new Date(`${exam.date}T${exam.end_time}`).toISOString(),
         allDay: false,

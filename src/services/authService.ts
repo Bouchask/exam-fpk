@@ -9,7 +9,7 @@ import type {
   User,
   ApiResponse,
 } from '../types';
-import { mockUsers, findMockUser, findMockUserByUsername, createSuccessResponse } from './mockData';
+import { findMockUser, createSuccessResponse } from './mockData';
 
 // Local flag can override global flag
 export { setGlobalUseMockData as setUseMockData, isGlobalUsingMockData as isUsingMockData, globalUseMockData as useMockData, resetToRealData };

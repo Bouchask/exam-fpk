@@ -9,7 +9,7 @@ import type {
   PaginatedResponse,
   ExamFilterParams,
 } from '../types';
-import { mockExams, mockAssignments, createSuccessResponse, createPaginatedResponse } from './mockData';
+import { mockExams, createPaginatedResponse, createSuccessResponse } from './mockData';
 
 const EXAM_ENDPOINTS = {
   LIST: '/exams',

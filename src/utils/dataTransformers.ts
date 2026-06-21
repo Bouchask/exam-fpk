@@ -53,7 +53,7 @@ export function transformExam(exam: BackendExam): FrontendExam {
   const room = typeof salle === 'string' ? salle : salle?.name || 'N/A';
   return {
     id: exam.id,
-    module: exam.module,
+    module: exam.module || 'Unknown',
     date: exam.date || 'N/A',
     time: exam.start_time || 'N/A',
     type: exam.exam_type,
@@ -334,7 +334,7 @@ export function transformToCalendarEvent(exam: BackendExam): CalendarEvent {
   
   return {
     id: exam.id,
-    title: exam.module,
+    title: exam.module || 'Exam',
     start: startDate.toISOString(),
     end: endDate.toISOString(),
     room: salleName,

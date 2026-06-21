@@ -6,7 +6,7 @@ import type {
   ApiResponse,
   PaginatedResponse,
 } from '../types';
-import { mockFilieres, createSuccessResponse, createPaginatedResponse } from './mockData';
+import { mockFilieres, createPaginatedResponse } from './mockData';
 
 const FILIER_ENDPOINTS = {
   LIST: '/filieres',

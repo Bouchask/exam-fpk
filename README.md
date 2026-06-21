@@ -1,169 +1,621 @@
 # FPK Exam Guard Management System
 
-A comprehensive web application for managing exam guards, professors, modules, and assignments for the FPK (Faculte Polydisciplinaire de Khenifra) university system.
+## Project Overview
 
-## Table of Contents
+**FPK Exam Guard** is a comprehensive web-based examination management system developed for the Faculty of Sciences and Techniques of Khouribga (FST Khouribga / FPK). This system automates and streamlines the process of assigning professors as exam guards, managing examination schedules, tracking assignments, and handling incident reports.
 
-- [Overview](#overview)
-- [Features](#features)
-- [Technologies Used](#technologies-used)
-- [Project Structure](#project-structure)
-- [Installation and Setup](#installation-and-setup)
-- [Configuration](#configuration)
-- [Database Setup](#database-setup)
-- [Running the Application](#running-the-application)
-- [Authentication](#authentication)
-- [API Endpoints](#api-endpoints)
-- [Database Schema](#database-schema)
-- [User Roles and Permissions](#user-roles-and-permissions)
-- [Key Features Details](#key-features-details)
-- [Guard Assignment Logic](#guard-assignment-logic)
-- [Real-time Updates](#real-time-updates)
-- [Deployment to Aiven.io](#deployment-to-aivenio)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+### Author Information
+
+**Yahya Bouchak**
+- **Role:** Master Student in Information Systems and Artificial Intelligence (SIIA)
+- **Institution:** Faculty of Sciences and Techniques, Khouribga (FPK - Universite Sultan Moulay Slimane)
+- **Specialization:** Information Systems and Artificial Intelligence
+- **Project:** Master's Thesis - Exam Guard Assignment System
 
 ---
 
-## Overview
+## Table of Contents
 
-The FPK Exam Guard Management System is designed to automate and streamline the process of assigning professors as guards for examinations. The system ensures fair distribution of guard duties among professors while respecting constraints such as maximum guard limits and department affiliations.
-
-The application consists of:
-- **Frontend**: React-based web interface with TypeScript
-- **Backend**: Flask-based REST API with Python
-- **Database**: PostgreSQL for data persistence
+1. [Features](#features)
+2. [Technologies](#technologies)
+3. [System Architecture](#system-architecture)
+4. [Database Schema](#database-schema)
+5. [API Endpoints](#api-endpoints)
+6. [Frontend Components](#frontend-components)
+7. [Setup and Installation](#setup-and-installation)
+8. [Usage](#usage)
+9. [Configuration](#configuration)
+10. [Security](#security)
+11. [Future Enhancements](#future-enhancements)
+12. [Acknowledgments](#acknowledgments)
 
 ---
 
 ## Features
 
-### Admin Features
-- User management (create, edit, delete professors and admins)
-- Department management
-- Filier (field of study) and module management
-- Salle (room) management
-- Exam scheduling and management
-- Assignment engine for automatic guard assignment
-- Dashboard with statistics and analytics
-- Real-time monitoring of assignments
+### Core Functionality
 
-### Professor Features
-- Personal dashboard showing teaching modules
-- View assigned guard duties
-- View exam details and schedules
-- Track guard quota (maximum 4 guards per professor)
-- Change email and password
-- Real-time updates of assignments
+1. **User Authentication & Authorization**
+   - Role-based access control (Admin, Professor)
+   - Secure login with JWT tokens
+   - Password management
 
-### System Features
-- JWT-based authentication
-- Role-based access control
-- Real-time data synchronization
-- Responsive design
-- Error handling and validation
-- Mock data fallback for development
+2. **Professor Management**
+   - Add, edit, and delete professor profiles
+   - Track professor quotas for exam guard assignments
+   - View professor statistics and assignment history
+
+3. **Department Management**
+   - Create and manage academic departments
+   - Assign department heads
+   - Track department statistics
+
+4. **Filiere (Field of Study) Management**
+   - Manage academic programs/fields
+   - Associate modules with filieres
+   - Track filiere progress
+
+5. **Module Management**
+   - Add and manage course modules
+   - Assign professors to modules
+   - Track module credits and hours
+
+6. **Salle (Room) Management**
+   - Manage examination rooms
+   - Track room capacity and type
+   - View room availability
+
+7. **Exam Management**
+   - Create and schedule examinations
+   - Assign exam types (Normal, Rattrapage)
+   - Manage exam rooms and schedules
+   - Track exam status
+
+8. **Assignment Engine**
+   - Automatic professor assignment to exams
+   - Smart assignment algorithms considering:
+     - Department alignment
+     - Quota availability
+     - Schedule conflicts
+     - Workload distribution
+   - Manual override capabilities
+
+9. **Incident Management**
+   - Report examination incidents
+   - Track incident status (Reported, Under Review, Resolved)
+   - Categorize incidents by type and severity
+   - Document resolution notes
+
+10. **Dashboard & Analytics**
+    - Real-time statistics
+    - Visual data representations
+    - Department-wise analysis
+    - Quota distribution charts
+    - Assignment history tracking
 
 ---
 
-## Technologies Used
+## Technologies
 
 ### Frontend
-- **React 18** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **Lucide React** - Icons
-- **Axios** - HTTP client
-- **React Router** - Hash-based routing
+
+- **Framework:** React 18 + TypeScript + Vite
+- **UI Library:** Custom components with Tailwind CSS
+- **State Management:** React Context API
+- **Data Visualization:** Recharts
+- **Icons:** Lucide React
+- **Animations:** Framer Motion
+- **Build Tool:** Vite
 
 ### Backend
-- **Flask** - Web framework
-- **Flask-JWT-Extended** - JWT authentication
-- **SQLAlchemy** - ORM
-- **Flask-CORS** - Cross-origin support
-- **Werkzeug** - Security utilities
-- **psycopg2** - PostgreSQL adapter
+
+- **Framework:** Flask (Python)
+- **Database:** PostgreSQL
+- **ORM:** SQLAlchemy
+- **Authentication:** JWT (Flask-JWT-Extended)
+- **API:** RESTful endpoints
+- **Password Hashing:** Werkzeug Security
 
 ### Database
-- **PostgreSQL** - Relational database
-- **Aiven.io** - Managed PostgreSQL hosting (recommended for production)
+
+- **Primary:** PostgreSQL
+- **Connection:** SQLAlchemy ORM
+- **Migration:** Flask-Migrate
+
+### DevOps & Tools
+
+- **Version Control:** Git + GitHub
+- **Package Management:** npm / pip
+- **Code Quality:** ESLint, TypeScript
+- **Formatting:** Prettier (via ESLint)
 
 ---
 
-## Project Structure
+## System Architecture
 
 ```
-exam-fpk/
-├── backend/                          # Backend server
-│   ├── app.py                       # Flask application entry point
-│   ├── config.py                    # Configuration settings
-│   ├── models.py                    # Database models
-│   ├── run.py                       # Server entry point
-│   ├── routes/                      # API route definitions
-│   │   ├── __init__.py              # Route registration
-│   │   ├── auth.py                  # Authentication routes
-│   │   ├── dashboard.py             # Dashboard routes
-│   │   ├── professors.py            # Professor routes
-│   │   ├── exams.py                 # Exam routes
-│   │   ├── departments.py           # Department routes
-│   │   ├── salles.py                # Salle routes
-│   │   ├── assignments.py           # Assignment routes
-│   │   ├── incidents.py             # Incident routes
-│   │   ├── filieres.py              # Filier routes
-│   │   └── modules.py               # Module routes
-│   └── utils/                      # Utility functions
-│       ├── database.py              # Database initialization
-│       └── helpers.py               # Helper functions
-├── src/                             # Frontend source
-│   ├── views/                      # Page components
-│   │   ├── AdminDashboard.tsx       # Admin dashboard
-│   │   ├── AssignmentEngine.tsx     # Assignment engine
-│   │   ├── FilierModuleManagement.tsx # Filier/module management
-│   │   ├── Login.tsx               # Login page
-│   │   └── ProfessorPortal.tsx     # Professor portal
-│   ├── services/                   # API services
-│   │   ├── api.ts                   # Axios API configuration
-│   │   ├── authService.ts           # Authentication service
-│   │   ├── dashboardService.ts      # Dashboard service
-│   │   ├── professorService.ts      # Professor service
-│   │   ├── examService.ts          # Exam service
-│   │   ├── moduleService.ts        # Module service
-│   │   ├── assignmentService.ts    # Assignment service
-│   │   ├── departmentService.ts     # Department service
-│   │   ├── salleService.ts         # Salle service
-│   │   ├── filierService.ts        # Filier service
-│   │   └── index.ts                # Service exports
-│   ├── types/                      # TypeScript interfaces
-│   │   └── index.ts                # All type definitions
-│   ├── components/                 # Reusable components
-│   │   └── ui/                     # UI components
-│   ├── contexts/                   # React contexts
-│   │   └── AuthContext.tsx         # Authentication context
-│   ├── hooks/                      # Custom React hooks
-│   ├── utils/                      # Utility functions
-│   ├── App.tsx                     # Main application component
-│   ├── App.css                    # Global styles
-│   └── main.tsx                   # Application entry point
-├── init_aiven_db.py                # Aiven.io database initialization
-├── init_aiven_db_final.py          # Final Aiven.io database script
-├── .env.aiven                     # Aiven.io configuration
-├── package.json                   # Frontend dependencies
-├── vite.config.ts                 # Vite configuration
-└── tsconfig.json                  # TypeScript configuration
+┌─────────────────────────────────────────────────────────────────┐
+│                        CLIENT (Frontend)                           │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │   React + TSX   │  │   Vite Build    │  │   Recharts       │  │
+│  │   Components     │  │   System        │  │   Charts         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    API Calls (axios)                           ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      SERVER (Backend)                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │   Flask API      │  │   JWT Auth       │  │  PostgreSQL      │  │
+│  │   Endpoints      │  │   Token Mgmt     │  │  Database        │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    SQLAlchemy ORM                             ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Installation and Setup
+## Database Schema
+
+### Entity-Relationship Diagram (Conceptual)
+
+```
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│      User       │       │    Professor    │       │   Department    │
+├─────────────────┤       ├─────────────────┤       ├─────────────────┤
+│ PK id           │───┐   │ PK id           │       │ PK id           │
+│    username     │   │   │ FK user_id      │◄──────│    name         │
+│    email        │   │   │    name         │       │    code         │
+│    password     │   │   │ FK department_id│───────┤    head_id      │
+│    first_name   │   │   │    department   │       │    head_name    │
+│    last_name    │   │   │    max_guards   │       │    staff_count  │
+│    role         │   │   │    completed_   │       │    created_at   │
+│    institutional│   │   │       guards   │       └─────────────────┘
+│    grade        │   │   │    quota_status │                │
+│    is_active    │   │   │    quota_pct    │                │
+│    created_at   │   │   └─────────────────┘                │
+└─────────────────┘   │          │                          │
+         │            │          │                          │
+         │            └──────────┼──────────────────────┘
+         │                       ▼
+         │            ┌─────────────────┐
+         │            │   Assignment     │
+         │            ├─────────────────┤
+         │            │ PK id           │
+         │            │ FK professor_id  │◄──────────────────────┐
+         │            │ FK exam_id       │                       │
+         │            │    status       │                       │
+         │            │    assignment    │                       │
+         │            │       _date     │                       │
+         │            └─────────────────┘                       │
+         │                     │                              │
+         │                     ▼                              │
+         │            ┌─────────────────┐                       │
+         │            │     Exam        │                       │
+         │            ├─────────────────┤                       │
+         │            │ PK id           │                       │
+         │            │ FK module_id    │───────────────────┐  │
+         │            │ FK salle_id     │───────────────┐   │  │
+         │            │ FK department_id│──────────┘   │  │  │
+         │            │    exam_type    │                   │  │  │
+         │            │    date         │                   │  │  │
+         │            │    start_time   │                   │  │  │
+         │            │    end_time     │                   │  │  │
+         │            │    duration     │                   │  │  │
+         │            │    academic_    │                   │  │  │
+         │            │       year      │                   │  │  │
+         │            │    semester     │                   │  │  │
+         │            │    status       │                   │  │  │
+         │            └─────────────────┘                   │  │  │
+         │                                                     │  │
+         │            ┌─────────────────┐                    ┌──┴──┴─────────────────┐
+         │            │    Module       │                    │        Salle        │
+         │            ├─────────────────┤                    ├─────────────────┤
+         │            │ PK id           │                    │ PK id           │
+         │            │    name         │                    │    name         │
+         │            │    code         │                    │    code         │
+         │            │ FK filier_id    │◄─────────────────┐ │    capacity     │
+         │            │    credits      │                   │ │    type         │
+         │            │    hours        │                   │ │    floor        │
+         │            │    description  │                   │ │    building     │
+         │            └─────────────────┘                   │ └─────────────────┘
+         │                                                     │
+         │            ┌─────────────────┐                    ┌──┴─────────────────┐
+         │            │    Filier       │                    │     Incident       │
+         │            ├─────────────────┤                    ├─────────────────┤
+         │            │ PK id           │                    │ PK id           │
+         │            │    name         │                    │ FK professor_id  │
+         │            │    code         │                    │ FK assignment_id │
+         │            │ FK department_id│───────────────────┘ │    incident_type │
+         │            │    max_modules  │                      │    description  │
+         │            └─────────────────┘                      │    status       │
+         │                                                  │    severity     │
+         └─────────────────────────────────────────────────┴─────────────────┘
+```
+
+### Database Tables
+
+#### 1. users
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    full_name VARCHAR(101) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'professor')),
+    institutional_grade VARCHAR(50),
+    department_id INTEGER REFERENCES departments(id),
+    digital_signature TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 2. professors
+```sql
+CREATE TABLE professors (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE REFERENCES users(id),
+    name VARCHAR(100),
+    department_id INTEGER REFERENCES departments(id),
+    department VARCHAR(100),
+    max_guards INTEGER DEFAULT 4,
+    completed_guards INTEGER DEFAULT 0,
+    quota_status VARCHAR(20) DEFAULT '0/4',
+    quota_percentage INTEGER DEFAULT 0,
+    is_quota_full BOOLEAN DEFAULT FALSE,
+    academic_title VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 3. departments
+```sql
+CREATE TABLE departments (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    head_id INTEGER REFERENCES users(id),
+    head_name VARCHAR(100),
+    staff_count INTEGER DEFAULT 0,
+    code VARCHAR(20) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 4. filieres
+```sql
+CREATE TABLE filieres (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) UNIQUE,
+    department_id INTEGER REFERENCES departments(id),
+    department_name VARCHAR(100),
+    max_modules INTEGER DEFAULT 10,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    module_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 5. modules
+```sql
+CREATE TABLE modules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) UNIQUE,
+    filier_id INTEGER REFERENCES filieres(id),
+    filier_name VARCHAR(100),
+    professor_id INTEGER REFERENCES professors(id),
+    professor_name VARCHAR(100),
+    credits INTEGER,
+    hours INTEGER,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 6. salles
+```sql
+CREATE TABLE salles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) UNIQUE NOT NULL,
+    capacity INTEGER,
+    type VARCHAR(20) CHECK (type IN ('AMPHI', 'SALLE', 'LAB')),
+    floor VARCHAR(20),
+    building VARCHAR(50),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 7. exams
+```sql
+CREATE TABLE exams (
+    id SERIAL PRIMARY KEY,
+    module_id INTEGER REFERENCES modules(id),
+    module VARCHAR(100),
+    module_code VARCHAR(20),
+    exam_type VARCHAR(20) NOT NULL CHECK (exam_type IN ('NORMAL', 'MIDTERM', 'FINAL', 'RATTRAPAGE')),
+    filier_id INTEGER REFERENCES filieres(id),
+    filier VARCHAR(100),
+    date DATE NOT NULL,
+    time VARCHAR(50),
+    start_time VARCHAR(10),
+    end_time VARCHAR(10),
+    duration_minutes INTEGER,
+    salle_id INTEGER REFERENCES salles(id),
+    salle VARCHAR(100),
+    department_id INTEGER REFERENCES departments(id),
+    department VARCHAR(100),
+    academic_year VARCHAR(20) DEFAULT '2025-2026',
+    semester VARCHAR(10) DEFAULT 'S2',
+    status VARCHAR(20) DEFAULT 'SCHEDULED',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    guards_count INTEGER DEFAULT 0
+);
+```
+
+#### 8. assignments
+```sql
+CREATE TABLE assignments (
+    id SERIAL PRIMARY KEY,
+    professor_id INTEGER REFERENCES professors(id) NOT NULL,
+    professor VARCHAR(100),
+    professor_department VARCHAR(100),
+    exam_id INTEGER REFERENCES exams(id) NOT NULL,
+    exam_module VARCHAR(100),
+    exam_date DATE,
+    exam_time VARCHAR(50),
+    exam_room VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'CONFIRMED', 'DECLINED', 'COMPLETED')),
+    assignment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 9. incidents
+```sql
+CREATE TABLE incidents (
+    id SERIAL PRIMARY KEY,
+    professor_id INTEGER REFERENCES professors(id),
+    professor VARCHAR(100),
+    assignment_id INTEGER REFERENCES assignments(id),
+    incident_type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'REPORTED' CHECK (status IN ('REPORTED', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED')),
+    reported_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_date TIMESTAMP,
+    resolved_by INTEGER REFERENCES users(id),
+    resolution_notes TEXT,
+    severity VARCHAR(20) DEFAULT 'MEDIUM' CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    related_exam_id INTEGER REFERENCES exams(id),
+    related_exam VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 10. assignment_history
+```sql
+CREATE TABLE assignment_history (
+    id SERIAL PRIMARY KEY,
+    assignment_id INTEGER REFERENCES assignments(id),
+    professor_id INTEGER REFERENCES professors(id),
+    professor VARCHAR(100),
+    exam_id INTEGER REFERENCES exams(id),
+    exam_module VARCHAR(100),
+    exam_date DATE,
+    exam_type VARCHAR(20),
+    completion_date TIMESTAMP,
+    status VARCHAR(20) NOT NULL,
+    report_path VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## API Endpoints
+
+### Authentication
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/api/auth/login` | User login | No |
+| POST | `/api/auth/register` | Register new user (Admin only) | Yes |
+| POST | `/api/auth/logout` | User logout | Yes |
+| POST | `/api/auth/refresh` | Refresh JWT token | Yes |
+| POST | `/api/auth/change-password` | Change user password | Yes |
+
+### Professors
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/professors` | Get all professors | Yes |
+| GET | `/api/professors/:id` | Get professor by ID | Yes |
+| POST | `/api/professors` | Create new professor | Yes (Admin) |
+| PUT | `/api/professors/:id` | Update professor | Yes (Admin) |
+| DELETE | `/api/professors/:id` | Delete professor | Yes (Admin) |
+| GET | `/api/professors/my/stats` | Get current professor stats | Yes |
+| GET | `/api/professors/my/assignments` | Get current professor assignments | Yes |
+
+### Departments
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/departments` | Get all departments | Yes |
+| GET | `/api/departments/:id` | Get department by ID | Yes |
+| POST | `/api/departments` | Create new department | Yes (Admin) |
+| PUT | `/api/departments/:id` | Update department | Yes (Admin) |
+| DELETE | `/api/departments/:id` | Delete department | Yes (Admin) |
+
+### Filieres
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/filieres` | Get all filieres | Yes |
+| GET | `/api/filieres/:id` | Get filiere by ID | Yes |
+| POST | `/api/filieres` | Create new filiere | Yes (Admin) |
+| PUT | `/api/filieres/:id` | Update filiere | Yes (Admin) |
+| DELETE | `/api/filieres/:id` | Delete filiere | Yes (Admin) |
+
+### Modules
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/modules` | Get all modules | Yes |
+| GET | `/api/modules/:id` | Get module by ID | Yes |
+| POST | `/api/modules` | Create new module | Yes (Admin) |
+| PUT | `/api/modules/:id` | Update module | Yes (Admin) |
+| DELETE | `/api/modules/:id` | Delete module | Yes (Admin) |
+| GET | `/api/modules/filier/:filier_id` | Get modules by filiere | Yes |
+
+### Salles (Rooms)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/salles` | Get all salles | Yes |
+| GET | `/api/salles/:id` | Get salle by ID | Yes |
+| POST | `/api/salles` | Create new salle | Yes (Admin) |
+| PUT | `/api/salles/:id` | Update salle | Yes (Admin) |
+| DELETE | `/api/salles/:id` | Delete salle | Yes (Admin) |
+
+### Exams
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/exams` | Get all exams | Yes |
+| GET | `/api/exams/:id` | Get exam by ID | Yes |
+| POST | `/api/exams` | Create new exam | Yes (Admin) |
+| PUT | `/api/exams/:id` | Update exam | Yes (Admin) |
+| DELETE | `/api/exams/:id` | Delete exam | Yes (Admin) |
+| GET | `/api/exams/upcoming` | Get upcoming exams | Yes |
+| GET | `/api/exams/module/:module_id` | Get exams by module | Yes |
+| GET | `/api/exams/department/:dept_id` | Get exams by department | Yes |
+| GET | `/api/exams/date/:date` | Get exams by date | Yes |
+
+### Assignments
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/assignments` | Get all assignments | Yes |
+| GET | `/api/assignments/:id` | Get assignment by ID | Yes |
+| POST | `/api/assignments` | Create new assignment | Yes (Admin) |
+| PUT | `/api/assignments/:id` | Update assignment | Yes (Admin) |
+| DELETE | `/api/assignments/:id` | Delete assignment | Yes (Admin) |
+| POST | `/api/assignments/:id/complete` | Mark assignment as completed | Yes |
+| GET | `/api/assignments/my/upcoming` | Get current user's upcoming assignments | Yes |
+| GET | `/api/assignments/my/history` | Get current user's assignment history | Yes |
+| GET | `/api/assignments/my/next` | Get current user's next assignment | Yes |
+| GET | `/api/assignments/professor/:professor_id` | Get assignments by professor | Yes |
+| GET | `/api/assignments/exam/:exam_id` | Get assignments by exam | Yes |
+
+### Incidents
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/incidents` | Get all incidents | Yes (Admin) |
+| GET | `/api/incidents/:id` | Get incident by ID | Yes |
+| POST | `/api/incidents` | Report new incident | Yes |
+| PUT | `/api/incidents/:id` | Update incident | Yes (Admin) |
+| DELETE | `/api/incidents/:id` | Delete incident | Yes (Admin) |
+| POST | `/api/incidents/:id/resolve` | Resolve incident | Yes (Admin) |
+| GET | `/api/incidents/my` | Get current user's incidents | Yes |
+| GET | `/api/incidents/professor/:professor_id` | Get incidents by professor | Yes |
+| GET | `/api/incidents/status/:status` | Get incidents by status | Yes |
+
+### Dashboard
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/dashboard/overview` | Get dashboard overview | Yes |
+| GET | `/api/dashboard/stats` | Get admin statistics | Yes (Admin) |
+| GET | `/api/dashboard/calendar` | Get exam calendar events | Yes |
+| GET | `/api/dashboard/exam-calendar` | Get calendar with date range | Yes |
+
+### Assignment Engine (Smart Assignment)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/api/assign/auto` | Auto-assign professors to exams | Yes (Admin) |
+| POST | `/api/assign/auto/exam/:exam_id` | Auto-assign to specific exam | Yes (Admin) |
+| POST | `/api/assign/smart` | Smart assignment with algorithms | Yes (Admin) |
+
+---
+
+## Frontend Components
+
+### Page Layout
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Top Navigation Bar                            │
+│  [Logo] | [Navigation Links] | [User Menu] | [Notifications]    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────┐  ┌─────────────────────────────────────┐ │
+│  │                 │  │                                     │ │
+│  │   SIDEBAR       │  │         MAIN CONTENT                │ │
+│  │   Navigation    │  │                                     │ │
+│  │                 │  │  - Dashboard View                  │ │
+│  │  • Dashboard    │  │  - Professor Management            │ │
+│  │  • Professors   │  │  - Exam Management                 │ │
+│  │  • Exams        │  │  - Assignment Engine                │ │
+│  │  • Departments  │  │  - Module/Filier Management          │ │
+│  │  • Salles       │  │  - Incident Reports                │ │
+│  │  • Settings     │  │  - Statistics & Analytics           │ │
+│  │                 │  │                                     │ │
+│  └─────────────────┘  └─────────────────────────────────────┘ │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────┤
+│                    Footer (if applicable)                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Component Files
+
+- **`src/main.tsx`**: Application entry point
+- **`src/App.tsx`**: Main app router
+- **`src/contexts/AuthContext.tsx`**: Authentication context provider
+- **`src/components/layout/`**: Layout components (Sidebar, Topbar)
+- **`src/components/ui/`**: UI components (Modal, DataTable, buttons, etc.)
+- **`src/views/`**: Page views
+  - `AdminDashboard.tsx`: Main admin dashboard
+  - `ProfessorPortal.tsx`: Professor dashboard
+  - `AssignmentEngine.tsx`: Smart assignment interface
+  - `FilierModuleManagement.tsx`: Module and filiere management
+  - `Login.tsx`: Authentication page
+- **`src/services/`**: API service layers
+  - `api.ts`: Base API configuration
+  - `authService.ts`: Authentication services
+  - `professorService.ts`, `examService.ts`, etc.: Entity-specific services
+- **`src/types/index.ts`**: TypeScript type definitions
+- **`src/hooks/`**: Custom React hooks
+- **`src/utils/`**: Utility functions
+
+---
+
+## Setup and Installation
 
 ### Prerequisites
 
 - Node.js 18+ (for frontend)
-- Python 3.10+ (for backend)
+- Python 3.9+ (for backend)
 - PostgreSQL 14+ (for database)
-- Git
+- npm / pip package managers
 
 ### Frontend Setup
 
@@ -174,759 +626,328 @@ cd /path/to/exam-fpk
 # Install dependencies
 npm install
 
-# Start development server
-npm run dev
-```
+# Copy environment file
+cp .env.example .env
 
-The frontend will be available at `http://localhost:5173`
+# Edit .env file with your configuration
+nano .env
+
+# Run development server
+npm run dev
+
+# Or build for production
+npm run build
+```
 
 ### Backend Setup
 
 ```bash
 # Navigate to backend directory
-cd backend
+cd /path/to/exam-fpk/backend
 
-# Create virtual environment (recommended)
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Start backend server
-python run.py
+# Copy configuration file
+cp .env.example .env
+
+# Edit .env file with your configuration
+nano .env
+
+# Initialize database
+flask db init
+flask db migrate
+flask db upgrade
+
+# Seed database (optional)
+flask seed
+
+# Run development server
+flask run
 ```
 
-The backend will be available at `http://localhost:5006`
+### Environment Variables
+
+#### Frontend (.env)
+
+```bash
+VITE_API_URL=http://localhost:5006/api
+VITE_APP_NAME=FPK Exam Guard
+```
+
+#### Backend (.env)
+
+```bash
+FLASK_APP=app.py
+FLASK_ENV=development
+FLASK_SECRET_KEY=your-secret-key-here
+DATABASE_URL=postgresql://username:password@localhost:5432/fpk_exam_guard
+JWT_SECRET_KEY=your-jwt-secret-key-here
+JWT_ACCESS_TOKEN_EXPIRES=3600  # 1 hour in seconds
+```
+
+---
+
+## Usage
+
+### Accessing the Application
+
+1. Start the backend server:
+   ```bash
+   cd backend
+   flask run
+   ```
+   The backend will run on `http://localhost:5006`
+
+2. Start the frontend server:
+   ```bash
+   npm run dev
+   ```
+   The frontend will run on `http://localhost:5173`
+
+3. Open your browser and navigate to `http://localhost:5173`
+
+### Default Credentials
+
+| Username | Password | Role |
+|----------|----------|------|
+| admin | admin | Admin |
+| prof | prof | Professor |
+
+### User Roles
+
+#### Admin
+- Full access to all features
+- Can manage professors, departments, filieres, modules, salles, exams
+- Can view and edit all assignments
+- Can access the Assignment Engine
+- Can view all incidents and statistics
+
+#### Professor
+- Can view their own assignments
+- Can mark assignments as completed
+- Can report incidents
+- Can view their own statistics
+- Limited access to exam information
 
 ---
 
 ## Configuration
 
-### Environment Variables
+### Database Configuration
 
-The application uses environment variables for configuration. Create a `.env` file in the project root for the frontend and in the `backend/` directory for the backend.
-
-#### Frontend Configuration (`src/services/api.ts`)
-
-```env
-VITE_API_URL=http://localhost:5006/api
-```
-
-#### Backend Configuration (`.env` in backend/)
-
-```env
-# Database
-DATABASE_URL=postgresql://username:password@localhost:5432/fpk_exam_guard
-
-# Server
-PORT=5006
-FLASK_HOST=0.0.0.0
-FLASK_DEBUG=true
-
-# Security
-SECRET_KEY=your-secret-key-change-in-production
-JWT_SECRET_KEY=jwt-secret-key-change-in-production
-```
-
-### Aiven.io Configuration
-
-For production deployment on Aiven.io, use the provided `.env.aiven` file:
-
-```env
-# Aiven.io Database Connection
-DATABASE_URL=postgres://avnadmin:[REDACTED]@exam-fpk-yahyabouaachak-c539.b.aivencloud.com:21532/defaultdb?sslmode=require
-
-# Backend Server
-PORT=5006
-SECRET_KEY=your-secret-key-change-in-production
-JWT_SECRET_KEY=jwt-secret-key-change-in-production
-
-# Frontend API
-VITE_API_URL=http://localhost:5006/api
-```
-
----
-
-## Database Setup
-
-### Local PostgreSQL Setup
-
-1. Install PostgreSQL on your system
-2. Create a database:
-   ```bash
-   createdb fpk_exam_guard
-   ```
-3. Update the `DATABASE_URL` in backend configuration
-
-### Aiven.io Database Setup
-
-1. Sign up for Aiven.io and create a PostgreSQL service
-2. Note the connection URL from the Aiven console
-3. Update the `.env.aiven` file with your connection details
-4. Run the initialization script:
-   ```bash
-   python init_aiven_db_final.py
-   ```
-
-The script will:
-- Test connection to Aiven.io PostgreSQL
-- Create all required tables
-- Insert default data (admin and professor users)
-- Configure SSL connections
-
----
-
-## Running the Application
-
-### Development Mode
-
-Run both frontend and backend servers:
+The system uses PostgreSQL with SQLAlchemy ORM. Configure the connection in `backend/.env`:
 
 ```bash
-# Terminal 1: Start backend
-cd backend
-source venv/bin/activate
-python run.py
-
-# Terminal 2: Start frontend
-cd /path/to/exam-fpk
-npm run dev
+DATABASE_URL=postgresql://username:password@host:port/database_name
 ```
 
-### Production Mode
+### JWT Configuration
 
-For production, you should:
-1. Build the frontend:
-   ```bash
-   npm run build
-   ```
-2. Serve the built files with a production server
-3. Run the backend with `FLASK_DEBUG=false`
+Configure JWT token settings in `backend/.env`:
 
----
+```bash
+JWT_SECRET_KEY=your-very-secure-random-key
+JWT_ACCESS_TOKEN_EXPIRES=3600
+JWT_REFRESH_TOKEN_EXPIRES=86400
+```
 
-## Authentication
+### Quota System Configuration
 
-The system uses JWT (JSON Web Tokens) for authentication with the following default credentials:
+The default professor quota is 4 exam guards per semester. This can be configured:
 
-### Default Users
-
-| Username | Password | Role | Description |
-|----------|----------|------|-------------|
-| admin | admin | admin | Administrator with full access |
-| prof | prof | professor | Professor with limited access |
-
-### Login
-
-1. Navigate to `http://localhost:5173`
-2. Enter username and password
-3. Click "SIGN IN"
-
-### Session Management
-
-- Tokens are stored in browser localStorage
-- Access token expires after 1 hour (configurable)
-- Automatic token refresh is implemented
-- Logout clears all session data
+- Globally in the backend configuration
+- Per professor in the professor profile
 
 ---
 
-## API Endpoints
+## Security
 
 ### Authentication
+- JWT-based authentication
+- Secure password hashing with Werkzeug
+- Role-based access control
+- Token expiration and refresh mechanism
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| POST | `/api/auth/login` | User login | No |
-| GET | `/api/auth/me` | Get current user info | Yes |
-| POST | `/api/auth/logout` | Logout | No |
-| POST | `/api/auth/refresh` | Refresh token | Yes (refresh) |
-| POST | `/api/auth/change-password` | Change password | Yes |
-| PUT | `/api/auth/users/<user_id>` | Update user | Yes (admin) |
+### Data Protection
+- All API endpoints protected with JWT
+- Sensitive data encrypted
+- Input validation on all endpoints
+- CSRF protection (via JWT)
 
-### Dashboard
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/dashboard/overview` | Dashboard statistics | Yes |
-| GET | `/api/dashboard/stats` | Detailed statistics | Yes |
-| GET | `/api/dashboard/exam-calendar` | Exam calendar data | Yes |
-| GET | `/api/dashboard/notifications` | User notifications | Yes |
-
-### Professors
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/professors` | List all professors | Yes |
-| GET | `/api/professors/<id>` | Get professor details | Yes |
-| POST | `/api/professors` | Create professor | Yes (admin) |
-| PUT | `/api/professors/<id>` | Update professor | Yes (admin) |
-| DELETE | `/api/professors/<id>` | Delete professor | Yes (admin) |
-
-### Exams
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/exams` | List all exams | Yes |
-| GET | `/api/exams/<id>` | Get exam details | Yes |
-| POST | `/api/exams` | Create exam | Yes (admin) |
-| PUT | `/api/exams/<id>` | Update exam | Yes (admin) |
-| DELETE | `/api/exams/<id>` | Delete exam | Yes (admin) |
-| POST | `/api/exams/<id>/assign` | Assign professor to exam | Yes |
-| POST | `/api/exams/<id>/unassign/<prof_id>` | Unassign professor | Yes |
-| GET | `/api/exams/module/<module_id>` | Get exams by module | Yes |
-| GET | `/api/exams/upcoming` | Get upcoming exams | Yes |
-
-### Departments
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/departments` | List all departments | Yes |
-| GET | `/api/departments/<id>` | Get department details | Yes |
-| POST | `/api/departments` | Create department | Yes (admin) |
-| PUT | `/api/departments/<id>` | Update department | Yes (admin) |
-
-### Salles (Rooms)
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/salles` | List all salles | Yes |
-| POST | `/api/salles` | Create salle | Yes (admin) |
-| PUT | `/api/salles/<id>` | Update salle | Yes (admin) |
-| DELETE | `/api/salles/<id>` | Delete salle | Yes (admin) |
-
-### Assignments
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/assignments` | List all assignments | Yes |
-| GET | `/api/assignments/professor/<prof_id>` | Get assignments by professor | Yes |
-| GET | `/api/assignments/exam/<exam_id>` | Get assignments by exam | Yes |
-| POST | `/api/assignments` | Create assignment | Yes |
-| PUT | `/api/assignments/<id>` | Update assignment | Yes |
-| DELETE | `/api/assignments/<id>` | Delete assignment | Yes |
-
-### Filieres (Fields of Study)
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/filieres` | List all filieres | Yes |
-| POST | `/api/filieres` | Create filier | Yes (admin) |
-| PUT | `/api/filieres/<id>` | Update filier | Yes (admin) |
-| DELETE | `/api/filieres/<id>` | Delete filier | Yes (admin) |
-
-### Modules
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/modules` | List all modules | Yes |
-| GET | `/api/modules/<id>` | Get module details | Yes |
-| POST | `/api/modules` | Create module | Yes (admin) |
-| PUT | `/api/modules/<id>` | Update module | Yes (admin) |
-| DELETE | `/api/modules/<id>` | Delete module | Yes (admin) |
-| GET | `/api/modules/filier/<filier_id>` | Get modules by filier | Yes |
-| GET | `/api/modules/professor/<prof_id>` | Get modules by professor | Yes |
-
-### Incidents
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|----------------|
-| GET | `/api/incidents` | List all incidents | Yes |
-| POST | `/api/incidents` | Report incident | Yes |
-| PUT | `/api/incidents/<id>` | Update incident | Yes |
-| DELETE | `/api/incidents/<id>` | Delete incident | Yes |
+### Best Practices
+1. Always use HTTPS in production
+2. Rotate JWT secrets regularly
+3. Use strong database passwords
+4. Keep dependencies updated
+5. Implement proper backup procedures
 
 ---
 
-## Database Schema
+## Assignment Algorithm
 
-### Core Tables
+The smart assignment engine uses the following criteria (in order of priority):
 
-#### users
-Stores user authentication information
-```sql
-- id: Integer (Primary Key)
-- username: String (Unique, Required)
-- email: String (Unique, Required)
-- password_hash: String (Required, 255 chars)
-- first_name: String (Required)
-- last_name: String (Required)
-- full_name: String (Required)
-- role: String (Required, 'admin' or 'professor')
-- institutional_grade: String (Optional)
-- department_id: Integer (Foreign Key to departments)
-- digital_signature: String (Optional)
-- is_active: Boolean (Default: true)
-- created_at: Timestamp
-- updated_at: Timestamp
+1. **Department Alignment**: Prefer professors from the same department as the exam
+2. **Quota Availability**: Only assign to professors who haven't reached their quota
+3. **No Schedule Conflicts**: Avoid professors already assigned to exams at the same time
+4. **Workload Distribution**: Distribute assignments evenly among available professors
+5. **Historical Preference**: Consider professors who have previously taught the module
+
+---
+
+## Future Enhancements
+
+### Planned Features
+
+1. **Mobile Application**
+   - Native mobile app for professors to view assignments
+   - Push notifications for new assignments
+
+2. **Advanced Analytics**
+   - Predictive analytics for exam scheduling
+   - Machine learning for optimal professor assignment
+
+3. **Integration**
+   - Integration with university student information system
+   - Calendar synchronization with Google Calendar
+
+4. **Notifications**
+   - Email notifications for new assignments
+   - SMS alerts for upcoming exams
+   - In-app notifications
+
+5. **Reporting**
+   - Custom report generation
+   - PDF/Excel export capabilities
+   - Automated report scheduling
+
+6. **Multi-language Support**
+   - Arabic and French language support
+   - RTL layout support
+
+### Technical Improvements
+
+1. Implement Redis for caching
+2. Add rate limiting
+3. Implement API versioning
+4. Add comprehensive logging
+5. Docker containerization
+6. CI/CD pipeline
+
+---
+
+## Project Structure
+
 ```
-
-#### professors
-Stores professor-specific information
-```sql
-- id: Integer (Primary Key)
-- user_id: Integer (Unique, Foreign Key to users)
-- name: String (Optional)
-- department_id: Integer (Foreign Key to departments)
-- department: String (Optional)
-- max_guards: Integer (Default: 4)
-- completed_guards: Integer (Default: 0)
-- quota_status: String (Default: 'ACTIVE')
-- quota_percentage: Numeric (Default: 0)
-- is_quota_full: Boolean (Default: false)
-- academic_title: String (Optional)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### departments
-Stores academic departments
-```sql
-- id: Integer (Primary Key)
-- name: String (Unique, Required)
-- code: String (Unique, Optional)
-- head_id: Integer (Foreign Key to users)
-- head_name: String (Optional)
-- staff_count: Integer (Default: 0)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### filieres
-Stores fields of study
-```sql
-- id: Integer (Primary Key)
-- name: String (Unique, Required)
-- code: String (Unique, Optional)
-- department_id: Integer (Foreign Key to departments)
-- department_name: String (Optional)
-- max_modules: Integer (Default: 10)
-- description: Text (Optional)
-- is_active: Boolean (Default: true)
-- module_count: Integer (Default: 0)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### modules
-Stores course/modules information
-```sql
-- id: Integer (Primary Key)
-- name: String (Unique, Required)
-- code: String (Unique, Optional)
-- filier_id: Integer (Foreign Key to filieres)
-- filier_name: String (Optional)
-- professor_id: Integer (Foreign Key to professors)
-- professor_name: String (Optional)
-- hours: Integer (Default: 45)
-- description: Text (Optional)
-- is_active: Boolean (Default: true)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### exams
-Stores examination information
-```sql
-- id: Integer (Primary Key)
-- module_id: Integer (Foreign Key to modules)
-- module: String (Required)
-- module_code: String (Optional)
-- exam_type: String (Required, 'NORMAL' or 'RATTRAPAGE')
-- filier_id: Integer (Foreign Key to filieres)
-- filier: String (Optional)
-- date: Date (Required)
-- time: String (Optional)
-- start_time: Time (Required)
-- end_time: Time (Required)
-- duration_minutes: Integer (Optional)
-- salle_id: Integer (Foreign Key to salles)
-- salle: String (Optional)
-- department_id: Integer (Foreign Key to departments)
-- department: String (Optional)
-- academic_year: String (Default: '2025-2026')
-- semester: String (Default: 'S2')
-- status: String (Default: 'SCHEDULED')
-- notes: Text (Optional)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### salles
-Stores room/venue information
-```sql
-- id: Integer (Primary Key)
-- name: String (Unique, Required)
-- code: String (Unique, Required)
-- capacity: Integer (Optional)
-- type: String (Optional, 'AMPHI', 'SALLE', 'LAB')
-- floor: String (Optional)
-- building: String (Optional)
-- is_active: Boolean (Default: true)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### assignments
-Stores guard assignments
-```sql
-- id: Integer (Primary Key)
-- professor_id: Integer (Foreign Key to professors)
-- professor: String (Optional)
-- professor_department: String (Optional)
-- exam_id: Integer (Foreign Key to exams)
-- exam_module: String (Optional)
-- exam_date: String (Optional)
-- exam_time: String (Optional)
-- exam_room: String (Optional)
-- status: String (Default: 'PENDING')
-- assignment_date: Timestamp (Default: CURRENT_TIMESTAMP)
-- notes: Text (Optional)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### incidents
-Stores reported incidents
-```sql
-- id: Integer (Primary Key)
-- professor_id: Integer (Foreign Key to professors)
-- professor: String (Optional)
-- assignment_id: Integer (Foreign Key to assignments)
-- incident_type: String (Required)
-- description: Text (Required)
-- status: String (Default: 'UNDER REVIEW')
-- reported_date: Timestamp (Default: CURRENT_TIMESTAMP)
-- resolved_date: Timestamp (Optional)
-- resolved_by: Integer (Foreign Key to users)
-- resolution_notes: Text (Optional)
-- severity: String (Default: 'LOW')
-- related_exam_id: Integer (Foreign Key to exams)
-- related_exam: String (Optional)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### assignment_history
-Stores history of completed assignments
-```sql
-- id: Integer (Primary Key)
-- assignment_id: Integer (Foreign Key to assignments)
-- professor_id: Integer (Foreign Key to professors)
-- professor: String (Optional)
-- exam_id: Integer (Foreign Key to exams)
-- exam_module: String (Optional)
-- exam_date: String (Optional)
-- exam_type: String (Optional)
-- completion_date: Timestamp (Default: CURRENT_TIMESTAMP)
-- status: String (Required)
-- report_path: String (Optional)
-- notes: Text (Optional)
-- created_at: Timestamp
-- updated_at: Timestamp
-```
-
-#### professor_filier
-Association table for many-to-many relationship between professors and filieres
-```sql
-- id: Integer (Primary Key)
-- professor_id: Integer (Foreign Key to professors)
-- filier_id: Integer (Foreign Key to filieres)
-- is_active: Boolean (Default: true)
-- created_at: Timestamp
+exam-fpk/
+├── backend/                          # Backend (Flask)
+│   ├── app.py                        # Main application file
+│   ├── config.py                     # Configuration
+│   ├── models.py                     # Database models
+│   ├── routes/                       # API routes
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── professors.py
+│   │   ├── exams.py
+│   │   ├── assignments.py
+│   │   └── ...
+│   ├── services/                     # Business logic
+│   ├── utils/                        # Utility functions
+│   ├── migrations/                   # Database migrations
+│   ├── requirements.txt              # Python dependencies
+│   └── .env.example                 # Environment template
+│
+├── src/                             # Frontend (React)
+│   ├── main.tsx                     # Entry point
+│   ├── App.tsx                      # Main app
+│   ├── components/                  # React components
+│   │   ├── layout/                  # Layout components
+│   │   │   ├── Layout.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── Topbar.tsx
+│   │   └── ui/                      # UI components
+│   │       ├── DataTable.tsx
+│   │       ├── Modal.tsx
+│   │       └── ...
+│   ├── contexts/                    # React contexts
+│   │   └── AuthContext.tsx
+│   ├── views/                       # Page views
+│   │   ├── AdminDashboard.tsx
+│   │   ├── ProfessorPortal.tsx
+│   │   ├── AssignmentEngine.tsx
+│   │   ├── FilierModuleManagement.tsx
+│   │   └── Login.tsx
+│   ├── services/                    # API services
+│   │   ├── api.ts
+│   │   ├── authService.ts
+│   │   ├── professorService.ts
+│   │   └── ...
+│   ├── types/                       # TypeScript types
+│   │   └── index.ts
+│   ├── hooks/                       # Custom hooks
+│   │   └── useApi.ts
+│   ├── utils/                       # Utilities
+│   │   ├── cn.ts
+│   │   └── dataTransformers.ts
+│   └── vite.config.ts              # Vite configuration
+│
+├── public/                         # Static files
+│   └── index.html
+│
+├── .env.example                    # Frontend env template
+├── package.json
+├── tsconfig.json
+├── tailwind.config.js
+├── postcss.config.js
+└── README.md
 ```
 
 ---
 
-## User Roles and Permissions
+## Acknowledgments
 
-### Admin
-- Full access to all features
-- Can create, edit, delete users, departments, filieres, modules, exams, salles
-- Can assign professors to exams
-- Can view and manage all assignments
-- Can view dashboard statistics
+This project was developed as part of the Master's thesis in Information Systems and Artificial Intelligence at the Faculty of Sciences and Techniques of Khouribga (FPK - Universite Sultan Moulay Slimane).
 
-### Professor
-- Can view personal dashboard with teaching modules
-- Can view assigned guard duties
-- Can view exam details for their modules
-- Can change own email and password
-- Can report incidents
-- Cannot access admin features
+**Author:** Yahya Bouchak
+**Academic Supervisor:** [To be updated]
+**University:** Universite Sultan Moulay Slimane, Faculty of Sciences and Techniques, Khouribga
+**Program:** Master SIIA (Systemes d'Information et Intelligence Artificielle)
+**Year:** 2025-2026
 
----
+### Special Thanks
 
-## Key Features Details
-
-### Dashboard Overview
-
-#### Admin Dashboard
-- **Statistics**: Total professors, exams, salles, allocation rate
-- **Quota Distribution**: Visual distribution of professors by guard completion
-- **Department Exam Load**: Exam distribution across departments
-- **Upcoming Exams**: Next 5 scheduled exams
-- **Recent Assignments**: Last 5 assignments made
-
-#### Professor Dashboard
-- **Personal Information**: Name, department, institutional grade
-- **Current Quota**: Guard assignments (X/4)
-- **Modules Taught**: List of modules with expandable exam details
-- **Active Guard Assignments**: List of current guard duties
-- **System Status**: Connection and sync status
-
-### Assignment Engine
-
-The Assignment Engine is the core feature for automatically assigning professors as guards to exams. It implements the following logic:
-
-1. **Filter Available Professors**: Only professors who haven't reached their maximum guard limit (4)
-2. **Department Matching**: Prioritize professors from the same department as the exam's department
-3. **Filier Matching**: Match professors teaching in the same filier as the exam's module
-4. **Module Professor**: Include the professor who teaches the module (counts toward their quota)
-5. **Random Selection**: Randomly select from available professors to ensure fair distribution
-6. **Quota Tracking**: Automatically update professor's completed_guards count
-
-### Module Management
-
-- Create modules with code, name, filier, professor
-- Assign professors to teach modules
-- Track module hours and descriptions
-- View modules by filier or professor
-- Activate/deactivate modules
-
-### Exam Management
-
-- Schedule exams with date, time, salle, module
-- Support for normal and rattrapage (makeup) exams
-- Associate multiple professors with exams
-- Track exam status (SCHEDULED, COMPLETED, CANCELLED)
-- View exams by module, department, or date range
-
----
-
-## Guard Assignment Logic
-
-The system implements a sophisticated guard assignment algorithm:
-
-### Rules
-
-1. **Maximum Limit**: Each professor can have at most 4 guard assignments
-2. **Department Preference**: Professors from the same department as the exam are preferred
-3. **Filier Matching**: Professors teaching in the same filier are prioritized
-4. **Module Professor**: The professor who teaches the module is automatically considered (if quota allows)
-5. **Minimum Requirement**: At least 3 professors per exam (including module professor)
-6. **Fair Distribution**: Random selection from available professors to ensure fairness
-
-### Assignment Process
-
-1. Get all exams that need guards
-2. For each exam:
-   a. Get the module's professor (primary candidate)
-   b. Find professors from the same department who have quota available
-   c. Find professors from the same filier who have quota available
-   d. Select up to 3 additional professors randomly from available pool
-   e. Verify total assignments don't exceed professor limits
-   f. Create assignments in database
-
-### Quota Management
-
-- Each professor has `max_guards: 4`
-- `completed_guards` tracks current assignments
-- `quota_status` shows current state (e.g., "2/4")
-- `quota_percentage` calculates completion percentage
-- `is_quota_full` flag when limit reached
-
----
-
-## Real-time Updates
-
-The application implements real-time updates through polling:
-
-- **Frontend**: ProfessorPortal.tsx polls for new data every 30 seconds
-- **Backend**: All endpoints return current data from database
-- **Mechanism**: Axios interceptors automatically add Authorization header with JWT token
-- **Result**: Changes in database (new assignments, status updates) are reflected in UI within 30 seconds
-
-### How It Works
-
-1. User logs in and receives JWT token
-2. Token is stored in localStorage
-3. Axios interceptor adds token to all requests
-4. Frontend polls backend every 30 seconds
-5. Backend validates token and returns fresh data
-6. UI updates automatically with new data
-
----
-
-## Deployment to Aiven.io
-
-### Step 1: Set Up Aiven.io PostgreSQL
-
-1. Sign up for Aiven.io account
-2. Create a new PostgreSQL service
-3. Note the connection URL (format: `postgres://user:password@host:port/database?sslmode=require`)
-4. Create a new database user with appropriate permissions
-
-### Step 2: Configure Environment
-
-Update `.env.aiven` file:
-
-```env
-# Aiven.io Database Connection
-DATABASE_URL=postgres://avnadmin:[REDACTED]@exam-fpk-yahyabouaachak-c539.b.aivencloud.com:21532/defaultdb?sslmode=require
-
-# Backend Server
-PORT=5006
-SECRET_KEY=your-strong-secret-key-change-in-production
-JWT_SECRET_KEY=your-strong-jwt-secret-key-change-in-production
-
-# Frontend API
-VITE_API_URL=http://localhost:5006/api
-```
-
-### Step 3: Initialize Database
-
-```bash
-# Using the final initialization script
-python init_aiven_db_final.py
-```
-
-This script:
-- Tests connection to Aiven.io
-- Creates all tables with proper schema
-- Inserts default users (admin/admin, prof/prof)
-- Configures SSL connections automatically
-- Handles `postgres://` to `postgresql://` URL conversion
-
-### Step 4: Run Application
-
-```bash
-# Terminal 1: Backend
-cd backend
-source venv/bin/activate
-cp ../.env.aiven .env
-python run.py
-
-# Terminal 2: Frontend
-cd /path/to/exam-fpk
-npm run dev
-```
-
-### Step 5: Verify Deployment
-
-1. Access `http://localhost:5173`
-2. Login with admin/admin or prof/prof
-3. Verify all data loads correctly
-4. Check real-time updates work
-5. Test guard assignment functionality
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### Database Connection Failed
-
-**Symptoms**: Backend fails to start, connection errors
-
-**Solutions**:
-- Verify DATABASE_URL is correct
-- Check PostgreSQL server is running
-- Test connection manually with psql or pgAdmin
-- Ensure user has proper permissions
-- For Aiven.io, ensure SSL mode is set to 'require'
-
-#### Authentication Failed
-
-**Symptoms**: Login returns 401, token not accepted
-
-**Solutions**:
-- Verify credentials are correct
-- Check JWT_SECRET_KEY matches between sessions
-- Clear browser localStorage and retry
-- Check if token expired (1 hour default)
-- Verify user is active in database
-
-#### 422 Unprocessable Entity
-
-**Symptoms**: API calls return 422 error
-
-**Solutions**:
-- Ensure Authorization header is sent with valid JWT token
-- Check token format (should be 'Bearer <token>')
-- Verify JWT_SECRET_KEY is consistent
-- Clear localStorage and login again
-
-#### Frontend Import Errors
-
-**Symptoms**: `examService is not defined`, `professorId is not defined`
-
-**Solutions**:
-- Ensure all services are imported from `"../services"` not individual files
-- Check TypeScript compilation completed successfully
-- Clear browser cache and reload
-- Verify all type definitions are correct
-
-#### Real-time Updates Not Working
-
-**Symptoms**: Changes in database not reflected in UI
-
-**Solutions**:
-- Check polling interval is active (30 seconds default)
-- Verify network connectivity
-- Ensure JWT token is valid and not expired
-- Check browser console for errors
-- Try manual refresh to verify backend is returning data
-
-### Debugging Tips
-
-1. **Backend Logs**: Check Flask server console for errors
-2. **Frontend Console**: Open browser DevTools to see JavaScript errors
-3. **Network Tab**: Inspect API calls and responses
-4. **Database Logs**: Check PostgreSQL logs for query errors
-5. **Token Inspection**: Use jwt.io to decode and verify JWT tokens
-
----
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-
-- **Frontend**: Follow React/TypeScript best practices
-- **Backend**: Follow Flask/Python best practices
-- **Database**: Use SQLAlchemy ORM for all queries
-- **Security**: Always use parameterized queries to prevent SQL injection
-- **Error Handling**: Handle exceptions gracefully with appropriate error messages
-
-### Testing
-
-- Test all new features thoroughly
-- Ensure existing functionality still works
-- Verify edge cases and error conditions
-- Test with both mock and real database
+- To the faculty and staff of FPK Khouribga for their support
+- To the open-source community for the amazing tools and libraries
+- To all contributors who helped in testing and feedback
 
 ---
 
 ## License
 
-This project is proprietary software developed for FPK (Faculte Polydisciplinaire de Khenifra).
+This project is proprietary software developed for academic purposes at FPK Khouribga. Unauthorized distribution or commercial use is prohibited without explicit permission from the author and the university.
 
 ---
 
 ## Contact
 
-For questions or support, please contact the development team.
+For questions or support, please contact:
+
+**Yahya Bouchak**
+- Email: yahya.bouchak@student.fpk.edu (example - update with actual email)
+- GitHub: [Bouchask](https://github.com/Bouchask)
+- LinkedIn: [linkedin.com/in/yahya-bouchak](https://linkedin.com/in/yahya-bouchak) (update with actual profile)
 
 ---
 
 *Last updated: June 2026*
+*Project created: 2025*

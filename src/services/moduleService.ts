@@ -6,7 +6,7 @@ import type {
   ApiResponse,
   PaginatedResponse,
 } from '../types';
-import { mockModules, createSuccessResponse, createPaginatedResponse } from './mockData';
+import { mockModules, createPaginatedResponse } from './mockData';
 
 const MODULE_ENDPOINTS = {
   LIST: '/modules',

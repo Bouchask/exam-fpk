@@ -88,6 +88,7 @@ export interface Department {
   staff_count: number;
   code?: string;
   created_at: string;
+  professors?: any[];
 }
 
 // ============================================
@@ -121,6 +122,11 @@ export interface Filier {
   is_active?: boolean;
   module_count?: number;
   created_at?: string;
+  professors?: Array<{
+    id: number;
+    name: string;
+    department?: string;
+  }>;
 }
 
 // ============================================
@@ -135,6 +141,7 @@ export interface Module {
   filier_name?: string;
   professor_id?: number;
   professor_name?: string;
+  credits?: number;
   hours?: number;
   description?: string;
   is_active?: boolean;

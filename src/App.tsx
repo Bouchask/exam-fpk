@@ -6,7 +6,7 @@ import { FilierModuleManagement } from "./views/FilierModuleManagement";
 import { ProfessorPortal } from "./views/ProfessorPortal";
 import { Login } from "./views/Login";
 import { useAuth } from "./contexts/AuthContext";
-import type { User } from "./types";
+
 
 function App() {
   const { user: authUser, isAuthenticated, logout: authLogout } = useAuth();

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Clock, MapPin, BookOpen, Settings, Save, Mail, Lock, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { cn } from "../utils/cn";
 import { Modal } from "../components/ui/Modal";
-import { professorService, examService, moduleService, assignmentService, authService, useMockData } from "../services";
+import { professorService, examService, moduleService, assignmentService, authService } from "../services";
 import type { Module, Exam, Assignment, Professor } from "../types";
 import type { User } from "../types";
 

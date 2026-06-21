@@ -6,7 +6,7 @@ import type { ApiResponse, PaginatedResponse } from '../types';
 // Generic hook for fetching data with loading and error states
 export function useApi<T>(
   fetchFunction: () => Promise<ApiResponse<T>>,
-  dependencies: any[] = []
+  // dependencies: any[] = []
 ): {
   data: T | null;
   isLoading: boolean;
@@ -39,7 +39,7 @@ export function useApi<T>(
   // Initial fetch
   useEffect(() => {
     fetchData();
-  }, dependencies);
+  }, [fetchFunction]);
 
   const refetch = useCallback(async () => {
     await fetchData();
@@ -53,7 +53,7 @@ export function usePaginatedApi<T>(
   fetchFunction: (page: number, perPage: number) => Promise<PaginatedResponse<T>>,
   initialPage: number = 1,
   initialPerPage: number = 10,
-  dependencies: any[] = []
+  // dependencies: any[] = []
 ): {
   data: T[];
   pagination: PaginatedResponse<T>['pagination'] | null;

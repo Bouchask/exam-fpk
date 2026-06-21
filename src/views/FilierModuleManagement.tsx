@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, MoreVertical, Save, RefreshCcw, Edit, BookOpen, Layers, Trash2, X } from "lucide-react";
+import { Plus, Save, RefreshCcw, Edit, BookOpen, Layers, Trash2 } from "lucide-react";
 import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
 import { filierService, moduleService, departmentService, professorService } from "../services";
 import type { Filier, Module, Department, Professor } from "../types";
-import { useAuth } from "../contexts/AuthContext";
+
 
 export const FilierModuleManagement = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<"filieres" | "modules">("filieres");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);

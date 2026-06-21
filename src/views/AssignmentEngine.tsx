@@ -15,7 +15,7 @@ import {
   X
 } from "lucide-react";
 import { cn } from "../utils/cn";
-import { professorService, examService, moduleService, assignmentService, useMockData } from "../services";
+import { professorService, examService, moduleService, assignmentService } from "../services";
 import type { Professor, Exam, Module, Assignment } from "../types";
 
 const steps = [
@@ -104,17 +104,17 @@ export const AssignmentEngine = () => {
   };
 
   // Get professors by department
-  const getProfessorsByDepartment = () => {
-    const deptMap = new Map<string, Professor[]>();
-    professors.forEach(prof => {
-      const dept = prof.department || 'Unknown';
-      if (!deptMap.has(dept)) {
-        deptMap.set(dept, []);
-      }
-      deptMap.get(dept)?.push(prof);
-    });
-    return deptMap;
-  };
+  // const getProfessorsByDepartment = () => {
+  //   const deptMap = new Map<string, Professor[]>();
+  //   professors.forEach(prof => {
+  //     const dept = prof.department || 'Unknown';
+  //     if (!deptMap.has(dept)) {
+  //       deptMap.set(dept, []);
+  //     }
+  //     deptMap.get(dept)?.push(prof);
+  //   });
+  //   return deptMap;
+  // };
 
   // Calculate overall statistics
   const getOverallStats = () => {
@@ -511,7 +511,7 @@ export const AssignmentEngine = () => {
                                 </h5>
                                 <div className="space-y-2">
                                   {stats.assignedExams.map(exam => {
-                                    const assignment = stats.assignments.find(a => a.exam_id === exam.id);
+                                    // const assignment = stats.assignments.find(a => a.exam_id === exam.id);
                                     return (
                                       <div 
                                         key={exam.id} 
@@ -522,7 +522,7 @@ export const AssignmentEngine = () => {
                                             {exam.module}
                                           </p>
                                           <p className="text-[9px] text-stone-500 mt-1">
-                                            {exam.date} | {exam.time || `${exam.start_time} - ${exam.end_time}`} | {exam.salle?.name || exam.room}
+                                            {exam.date} | {exam.time || `${exam.start_time} - ${exam.end_time}`} | {typeof exam.salle === 'string' ? exam.salle : (exam as any).salle?.name || (exam as any).room || 'N/A'}
                                           </p>
                                         </div>
                                         <span className={`text-[8px] font-black px-2 py-1 uppercase tracking-widest border ${exam.exam_type === 'RATTRAPAGE' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-stone-100 text-stone-600 border-stone-200'}`}>

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, Calendar, DoorOpen, Target, Layers, MoreVertical, Save, RefreshCcw, Edit, Trash2 } from "lucide-react";
+import { Plus, Users, Calendar, DoorOpen, Target, Layers, Save, RefreshCcw, Edit, Trash2 } from "lucide-react";
 import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { professorService, examService, departmentService, salleService, moduleService, filierService, authService, dashboardService, useMockData } from "../services";
-import type { Professor, Exam, Department, Salle, DashboardOverview } from "../types";
+import type { DashboardOverview } from "../types";
 
 interface AdminDashboardProps {
   forcedTab?: "overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules";
@@ -162,17 +162,17 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
 
   // Data state
   const [professors, setProfessors] = useState<{ id: number; name: string; dept: string; guards: number; user?: any }[]>([]);
-  const [exams, setExams] = useState<{ id: number; module: string; date: string; time: string; type: string; room: string }[]>([]);
-  const [departments, setDepartments] = useState<{ id: number; name: string; head: string; staff: number }[]>([]);
+  const [exams, setExams] = useState<{ id: number; module: string; module_id?: number; date: string; time: string; type: string; room: string; salle_id?: number; department_id?: number; guards?: any[]; guardCount?: number; associatedProfessor?: any; associatedProfessors?: any[]; moduleProfessorDept?: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: number; name: string; head: string; staff: number; code?: string }[]>([]);
   const [salles, setSalles] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string; is_active: boolean }[]>([]);
-  const [modules, setModules] = useState<{ id: number; name: string; code?: string; filier_id?: number; department_id?: number; professor_id?: number }[]>([]);
-  const [filieres, setFilieres] = useState<{ id: number; name: string; department_id?: number }[]>([]);
+  const [modules, setModules] = useState<{ id: number; name: string; code?: string; filier_id?: number; department_id?: number; professor_id?: number; department_name?: string; is_active?: boolean }[]>([]);
+  const [filieres, setFilieres] = useState<{ id: number; name: string; department_id?: number; department_name?: string; professors?: any[] }[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [editingSalle, setEditingSalle] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string } | null>(null);
   const [editingDepartment, setEditingDepartment] = useState<{ id: number; name: string; code?: string; head_id?: number; staff_count?: number } | null>(null);
   const [editingExam, setEditingExam] = useState<{ id: number; module_id: string; module: string; date: string; start_time: string; end_time: string; salle_id: string; salle: string; exam_type: string; department_id: string; department_name: string; notes: string } | null>(null);
-  const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; username?: string; email?: string; first_name?: string; last_name?: string; institutional_grade?: string; department?: string; user?: any } | null>(null);
+  const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; username?: string; email?: string; first_name?: string; last_name?: string; name?: string; institutional_grade?: string; department?: string; dept?: string; department_id?: number; user?: any } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleteConfirmType, setDeleteConfirmType] = useState<'salle' | 'professor' | 'department' | 'exam' | null>(null);
 
@@ -268,7 +268,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   useEffect(() => {
     if (selectedProfessor) {
       const user = selectedProfessor.user || {} as any;
-      const nameParts = selectedProfessor.name.split(' ');
+      const nameParts = (selectedProfessor.name || selectedProfessor.first_name || '').split(' ');
       setProfessorForm({
         username: user.username || selectedProfessor.username || nameParts.join(' '),
         password: '', // Do NOT display current password
@@ -378,16 +378,17 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               }));
             }
             // Method 2: Try to get from module_obj.professor
-            else if (e.module_obj && e.module_obj.professor) {
+            else if (e.module_obj && (e.module_obj as any).professor) {
+              const prof: any = (e.module_obj as any).professor;
               associatedProfessors = [{
-                name: e.module_obj.professor.name || e.module_obj.professor_name || 'Unknown',
-                id: e.module_obj.professor.id || e.module_obj.professor_id,
-                department: e.module_obj.professor.department || 'Unknown'
+                name: prof.name || (e.module_obj as any).professor_name || 'Unknown',
+                id: prof.id || (e.module_obj as any).professor_id,
+                department: prof.department || 'Unknown'
               }];
             }
             // Method 3: Try to get from module's filier
-            else if (e.module_obj && e.module_obj.filier_id) {
-              const filier = allFilieres.find((f: any) => f.id === e.module_obj.filier_id);
+            else if (e.module_obj?.filier_id) {
+              const filier = allFilieres.find((f: any) => f.id === e.module_obj!.filier_id);
               if (filier && filier.professors && Array.isArray(filier.professors) && filier.professors.length > 0) {
                 associatedProfessors = filier.professors.map((p: any) => ({
                   name: p.name || 'Unknown',
@@ -441,7 +442,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             
             return {
               id: e.id,
-              module: e.module,
+              module: e.module || 'Unknown',
               module_id: e.module_id,
               date: e.date,
               time: `${e.start_time} - ${e.end_time}`,
@@ -458,7 +459,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             console.error(`Failed to fetch assignments for exam ${e.id}:`, err);
             return {
               id: e.id,
-              module: e.module,
+              module: e.module || 'Unknown',
               module_id: e.module_id,
               date: e.date,
               time: `${e.start_time} - ${e.end_time}`,
@@ -1010,7 +1011,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       // Real API call
       await examService.create({
         module: examForm.module,
-        module_id: examForm.module_id,
+        module_id: parseInt(examForm.module_id) || 0,
         module_code: modules.find(m => m.id === parseInt(examForm.module_id))?.code || '',
         exam_type: examForm.exam_type,
         date: examForm.date,
@@ -1271,7 +1272,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   // Exam handlers
   const showExamGuards = (exam: typeof exams[0]) => {
     // Find the exam's module to get department info
-    const examModule = modules.find(m => m.id === exam.module_id);
+    const examModule = modules.find(m => m.id === exam.module_id) as any;
     let deptId = exam.department_id;
     let salleId = exam.salle_id;
     
@@ -1289,8 +1290,8 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     
     setSelectedExamGuards({
       id: exam.id,
-      module: exam.module,
-      module_id: exam.module_id,
+      module: exam.module || 'Unknown',
+      module_id: exam.module_id || 0,
       date: exam.date,
       time: exam.time,
       room: exam.room,
@@ -1338,7 +1339,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         : [];
       
       // Find the current exam's module
-      const examModule = allModules.find(m => m.id === selectedExamGuards.module_id);
+      const examModule = allModules.find(m => m.id === selectedExamGuards.module_id) as any;
       
       // Determine the target department (module's department or exam's department)
       let targetDeptId = selectedExamGuards.department_id;
@@ -1448,7 +1449,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     if (!selectedExamGuards) return;
     
     // Get all available professors from same department as module's filier
-    const examModule = modules.find(m => m.id === selectedExamGuards.module_id);
+    const examModule = modules.find(m => m.id === selectedExamGuards.module_id) as any;
     let targetDeptId = selectedExamGuards.department_id;
     
     if (!targetDeptId && examModule?.filier_id) {
@@ -1568,7 +1569,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     
     try {
       // Assign each selected professor
-      const assignments = [];
+      const assignments: any[] = [];
       for (const profId of selectedProfessorIds) {
         if (useMockData) {
           // Update local state for mock data
@@ -1725,7 +1726,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         
         // Fetch assignments for this exam
         const assignmentsResponse = await examService.getAssignments(selectedExamGuards.id);
-        const assignments = assignmentsResponse.success && assignmentsResponse.data 
+        const assignments: any[] = assignmentsResponse.success && assignmentsResponse.data 
           ? assignmentsResponse.data 
           : [];
         
@@ -1754,7 +1755,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           : [];
         
         // Build associated professors from module
-        const examModule = allModules.find(m => m.id === freshExam.module_id);
+        const examModule = allModules.find(m => m.id === freshExam.module_id) as any;
         let associatedProfessors: Array<{name: string; id: number; department: string}> = [];
         
         if (freshExam.associated_professors && Array.isArray(freshExam.associated_professors) && freshExam.associated_professors.length > 0) {
@@ -1806,8 +1807,8 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         // Update the selected exam guards
         setSelectedExamGuards({
           id: freshExam.id,
-          module: freshExam.module,
-          module_id: freshExam.module_id,
+          module: freshExam.module || 'Unknown',
+          module_id: freshExam.module_id || 0,
           date: freshExam.date,
           time: `${freshExam.start_time} - ${freshExam.end_time}`,
           room: typeof freshExam.salle === 'string' ? freshExam.salle : freshExam.salle?.name || 'Unknown',
@@ -1876,7 +1877,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         : [];
       
       // Find the current exam's module
-      const examModule = allModules.find(m => m.id === selectedExamGuards?.module_id);
+      const examModule = allModules.find(m => m.id === selectedExamGuards?.module_id) as any;
       
       // Determine the target department
       let targetDeptId = selectedExamGuards?.department_id;
@@ -2210,7 +2211,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       // Real API call - update exam
       await examService.update(editingExam.id, {
         module: examForm.module,
-        module_id: examForm.module_id,
+        module_id: parseInt(examForm.module_id) || 0,
         module_code: modules.find(m => m.id === parseInt(examForm.module_id))?.code || '',
         exam_type: examForm.exam_type,
         date: examForm.date,
@@ -2321,14 +2322,14 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       header: "GUARDS", 
       accessor: (e: typeof exams[0]) => (
         <div className="flex items-center gap-2">
-          {e.guardCount > 0 ? (
+          {(e.guardCount || 0) > 0 ? (
             <>
               <span 
                 className="text-[9px] font-black px-2 py-1 bg-green-100 border border-green-200 text-green-800 uppercase tracking-widest cursor-pointer hover:bg-green-200 transition-colors"
                 onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
                 title="View Assigned Guards"
               >
-                {e.guardCount} Guard{e.guardCount > 1 ? 's' : ''}
+                {e.guardCount || 0} Guard{(e.guardCount || 0) > 1 ? 's' : ''}
               </span>
               <button 
                 onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
@@ -2998,7 +2999,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                           boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                         }}
                         itemStyle={{ padding: 0, margin: 0 }}
-                        formatter={(value, name, props) => {
+                        formatter={(value, name) => {
                           const total = quotaData.reduce((sum, item) => sum + item.value, 0);
                           const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : 0;
                           return (
@@ -3062,21 +3063,14 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                         dataKey="value" 
                         stroke="#fff" 
                         strokeWidth={2}
-                        label={({ name, percent, value, index }) => {
+                        label={({ name, percent }) => {
                           // Only show labels for larger slices to avoid overlap
-                          if (percent > 0.12) {
+                          if (percent && percent > 0.12) {
                             // Truncate long names for display on chart
-                            const displayName = name.length > 15 ? `${name.substring(0, 12)}...` : name;
+                            const displayName = name && name.length > 15 ? `${name.substring(0, 12)}...` : name;
                             return displayName;
                           }
                           return '';
-                        }}
-                        labelStyle={{
-                          fontSize: '12px', 
-                          fontWeight: '900',
-                          fill: '#ffffff',
-                          fontFamily: 'inherit',
-                          textShadow: '0 0 3px rgba(0,0,0,0.7)'
                         }}
                         nameKey="name"
                       >
@@ -3094,7 +3088,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                           boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                         }}
                         itemStyle={{ padding: 0, margin: 0 }}
-                        formatter={(value, name, props) => {
+                        formatter={(value, name) => {
                           const total = deptData.reduce((sum, item) => sum + item.value, 0);
                           const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : 0;
                           return (
@@ -3120,7 +3114,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                         }}
                         iconType="circle"
                         iconSize={10}
-                        formatter={(value, entry, index) => (
+                        formatter={(value, entry) => (
                           <div className="flex flex-col items-center min-w-[120px] px-2">
                             <span 
                               className="text-[10px] font-black uppercase tracking-wider text-stone-700 whitespace-nowrap"
@@ -3128,7 +3122,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                               {value}
                             </span>
                             <span className="text-[9px] text-stone-400">
-                              {entry.payload.value} exams
+                              {(entry.payload as any)?.value || 0} exams
                             </span>
                           </div>
                         )}
@@ -3162,7 +3156,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                         <td className="py-3 text-stone-500">{exam.date}</td>
                         <td className="py-3 text-stone-500">{exam.start_time} - {exam.end_time}</td>
                         <td className="py-3 text-stone-500">{typeof exam.salle === 'string' ? exam.salle : exam.salle?.name || 'N/A'}</td>
-                        <td className="py-3 text-stone-500">{exam.department || 'N/A'}</td>
+                        <td className="py-3 text-stone-500">{typeof exam.department === 'string' ? exam.department : exam.department?.name || 'N/A'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3266,8 +3260,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       <Modal
         isOpen={isGuardsModalOpen}
         onClose={() => setIsGuardsModalOpen(false)}
-        title={selectedExamGuards?.guardCount > 0 ? `Guards for ${selectedExamGuards?.module || 'Exam'}` : `Associated Professors for ${selectedExamGuards?.module || 'Module'}`}
-        size="lg"
+        title={(selectedExamGuards?.guardCount || 0) > 0 ? `Guards for ${selectedExamGuards?.module || 'Exam'}` : `Associated Professors for ${selectedExamGuards?.module || 'Module'}`}
       >
         <div className="p-4">
           {selectedExamGuards ? (
@@ -3456,7 +3449,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           setError(null);
         }}
         title={`Assign Guards to ${selectedExamGuards?.module || 'Exam'}`}
-        size="lg"
       >
         <div className="p-4 space-y-4">
           {selectedExamGuards && (
@@ -3559,7 +3551,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                   <div className="space-y-2 max-h-[400px] overflow-y-auto border border-stone-100 rounded">
                     {availableProfessors.map((prof) => {
                       // Determine if this professor is from the target department
-                      const examModule = modules.find(m => m.id === selectedExamGuards?.module_id);
+                      const examModule = modules.find(m => m.id === selectedExamGuards?.module_id) as any;
                       let targetDeptId = selectedExamGuards?.department_id;
                       
                       if (!targetDeptId && examModule?.filier_id) {
@@ -3722,7 +3714,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           setError(null);
         }}
         title="Confirm Remove Guard"
-        size="md"
       >
         <div className="p-4">
           {guardToRemove && (
@@ -3773,7 +3764,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           setError(null);
         }}
         title={`Replace Guard: ${guardToReplace?.name || 'Select Guard'}`}
-        size="lg"
       >
         <div className="p-4 space-y-4">
           {guardToReplace && selectedExamGuards && (
@@ -3789,7 +3779,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                       Prof {guardToReplace.name}
                     </p>
                     <p className="text-[10px] text-stone-500 uppercase tracking-wider">
-                      Dept: {guardToReplace.department || selectedExamGuards.moduleProfessorDept}
+                      Dept: {(guardToReplace as any).department || selectedExamGuards.moduleProfessorDept}
                     </p>
                   </div>
                   <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">

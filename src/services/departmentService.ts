@@ -6,7 +6,7 @@ import type {
   ApiResponse,
   PaginatedResponse,
 } from '../types';
-import { mockDepartments, mockProfessors, mockExams, createSuccessResponse, createPaginatedResponse } from './mockData';
+import { mockDepartments, createPaginatedResponse } from './mockData';
 
 const DEPARTMENT_ENDPOINTS = {
   LIST: '/departments',

@@ -4,15 +4,13 @@ import api, { getErrorMessage, useMockData } from './api';
 import axios from 'axios';
 import type {
   Professor,
-  User,
   ApiResponse,
   PaginatedResponse,
 } from '../types';
 import { 
   mockProfessors, 
-  createSuccessResponse,
   createPaginatedResponse,
-  mockAssignments 
+  createSuccessResponse 
 } from './mockData';
 
 const PROFESSOR_ENDPOINTS = {

@@ -3,11 +3,11 @@
 import api, { getErrorMessage, useMockData } from './api';
 import type {
   Salle,
+  Exam,
   ApiResponse,
   PaginatedResponse,
-  Exam,
 } from '../types';
-import { mockSalles, mockExams, createSuccessResponse, createPaginatedResponse } from './mockData';
+import { mockSalles, createPaginatedResponse } from './mockData';
 
 const SALLE_ENDPOINTS = {
   LIST: '/salles',
