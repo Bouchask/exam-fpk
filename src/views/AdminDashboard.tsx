@@ -72,7 +72,23 @@ const HeaderAction = ({ activeTab, setIsModalOpen }: {
 };
 
 export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
-  const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(forcedTab || "overview");
+  // Derive activeTab from URL hash as single source of truth
+  const getCurrentTab = (): "overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules" => {
+    const hash = window.location.hash.replace("#", "");
+    const routeToTab: Record<string, "overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules"> = {
+      "": "overview",
+      "dashboard": "overview",
+      "professors": "professors",
+      "exams": "exams",
+      "salles": "salles",
+      "departments": "departments",
+      "filieres": "filieres",
+      "modules": "modules"
+    };
+    return routeToTab[hash] || forcedTab || "overview";
+  };
+
+  const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(getCurrentTab());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +142,21 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; username?: string; email?: string; first_name?: string; last_name?: string; institutional_grade?: string; department?: string; user?: any } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleteConfirmType, setDeleteConfirmType] = useState<'salle' | 'professor' | 'department' | 'exam' | null>(null);
-  
+
+  // Sync activeTab with URL hash - single source of truth
+  useEffect(() => {
+    const handleHashChange = () => {
+      const newTab = getCurrentTab();
+      if (newTab !== activeTab) {
+        setActiveTab(newTab);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    handleHashChange(); // Initialize on mount
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [forcedTab, activeTab]);
+
   // Load professor form data when selectedProfessor changes
   useEffect(() => {
     if (selectedProfessor) {
@@ -1791,7 +1821,10 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         {(["overview", "professors", "exams", "salles", "departments", "filieres", "modules"] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              const route = tab === "overview" ? "dashboard" : tab;
+              window.location.hash = route;
+            }}
             className={cn(
               "px-6 py-3 rounded-none text-[10px] font-black uppercase tracking-[0.15em] transition-all",
               activeTab === tab ? "bg-white text-app-fg border border-stone-200" : "text-stone-400 hover:text-app-fg"

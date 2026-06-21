@@ -75,6 +75,7 @@ function App() {
       case "modules":
         return <FilierModuleManagement />;
       case "engine":
+      case "assignments":
         return <AssignmentEngine />;
       
       // PROFESSOR VIEWS
@@ -106,7 +107,7 @@ function App() {
               <option value="staff">STAFF</option>
               <option value="departments">DEPARTMENTS</option>
               <option value="filieres">FILIERES & MODULES</option>
-              <option value="engine">ASSIGNMENT ENGINE</option>
+              <option value="assignments">ASSIGNMENT ENGINE</option>
             </>
           ) : (
             <>
@@ -137,8 +138,8 @@ function App() {
               ADMIN
             </button>
             <button 
-              onClick={() => window.location.hash = "engine"}
-              className={`px-6 py-2 rounded-none text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'engine' ? 'bg-app-primary text-white' : 'text-stone-400 hover:bg-stone-800'}`}
+              onClick={() => window.location.hash = "assignments"}
+              className={`px-6 py-2 rounded-none text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'assignments' || currentView === 'engine' ? 'bg-app-primary text-white' : 'text-stone-400 hover:bg-stone-800'}`}
             >
               ENGINE
             </button>

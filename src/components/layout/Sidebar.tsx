@@ -8,7 +8,7 @@ const adminMenuItems = [
   { id: "staff", label: "Staff", href: "#staff" },
   { id: "departments", label: "Departments", href: "#departments" },
   { id: "filieres", label: "Filieres & Modules", href: "#filieres" },
-  { id: "engine", label: "Assignment Engine", href: "#engine" },
+  { id: "assignments", label: "Assignment Engine", href: "#assignments" },
 ];
 
 const professorMenuItems = [
