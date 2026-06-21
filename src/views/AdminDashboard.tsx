@@ -11,6 +11,66 @@ interface AdminDashboardProps {
   forcedTab?: "overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules";
 }
 
+// Centralized page actions configuration
+const pageActions = {
+  overview: null,
+  professors: { 
+    label: "Add Professor", 
+    icon: Plus,
+    action: (setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>) => () => setIsModalOpen(true)
+  },
+  exams: { 
+    label: "Add Exam", 
+    icon: Plus,
+    action: (setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>) => () => setIsModalOpen(true)
+  },
+  salles: { 
+    label: "Add Salle", 
+    icon: Plus,
+    action: (setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>) => () => setIsModalOpen(true)
+  },
+  departments: { 
+    label: "Add Department", 
+    icon: Plus,
+    action: (setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>) => () => setIsModalOpen(true)
+  },
+  filieres: { 
+    label: "Add Filiere", 
+    icon: Plus,
+    action: (setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>) => () => setIsModalOpen(true)
+  },
+  modules: { 
+    label: "Add Module", 
+    icon: Plus,
+    action: (setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>) => () => setIsModalOpen(true)
+  }
+};
+
+// Header Action Component
+const HeaderAction = ({ activeTab, setIsModalOpen }: { 
+  activeTab: string; 
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>> 
+}) => {
+  const actionConfig = pageActions[activeTab as keyof typeof pageActions];
+  
+  if (!actionConfig) {
+    return null;
+  }
+  
+  const Icon = actionConfig.icon;
+  const handleClick = actionConfig.action(setIsModalOpen);
+  
+  return (
+    <button 
+      onClick={handleClick}
+      className="flex items-center justify-center gap-3 bg-app-primary text-white px-8 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-app-fg transition-all"
+    >
+      <Icon className="w-4 h-4" />
+      {actionConfig.label}
+    </button>
+  );
+};
+
 export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(forcedTab || "overview");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -332,6 +392,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     }
     if (activeTab === "departments") fetchDepartments();
     if (activeTab === "salles") fetchSalles();
+    if (activeTab === "filieres" || activeTab === "modules") fetchFilieresAndModules();
     if (activeTab === "overview") fetchDashboardOverview();
   }, [activeTab, fetchDashboardOverview, fetchProfessors, fetchExams, fetchDepartments, fetchSalles, fetchFilieresAndModules]);
 
@@ -1723,19 +1784,11 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           <h1 className="text-4xl font-black tracking-tighter text-app-fg uppercase">Control Center</h1>
           <p className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mt-2 italic">Institutional Data & Analytics</p>
         </div>
-        {activeTab !== "overview" && (
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-3 bg-app-primary text-white px-8 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-app-fg transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Add Resource
-          </button>
-        )}
+        <HeaderAction activeTab={activeTab} setIsModalOpen={setIsModalOpen} />
       </div>
 
       <div className="flex bg-stone-100 p-1 rounded-none border border-stone-200 w-fit">
-        {(["overview", "professors", "exams", "salles", "departments"] as const).map((tab) => (
+        {(["overview", "professors", "exams", "salles", "departments", "filieres", "modules"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
