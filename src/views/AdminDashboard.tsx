@@ -1723,13 +1723,15 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           <h1 className="text-4xl font-black tracking-tighter text-app-fg uppercase">Control Center</h1>
           <p className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mt-2 italic">Institutional Data & Analytics</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-3 bg-app-primary text-white px-8 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-app-fg transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Add Resource
-        </button>
+        {activeTab !== "overview" && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center justify-center gap-3 bg-app-primary text-white px-8 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-app-fg transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Add Resource
+          </button>
+        )}
       </div>
 
       <div className="flex bg-stone-100 p-1 rounded-none border border-stone-200 w-fit">
