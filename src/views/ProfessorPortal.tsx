@@ -4,6 +4,7 @@ import { cn } from "../utils/cn";
 import { Modal } from "../components/ui/Modal";
 import { professorService } from "../services/professorService";
 import { moduleService } from "../services/moduleService";
+import { examService } from "../services/examService";
 import { assignmentService } from "../services/assignmentService";
 import { authService } from "../services/authService";
 import type { Module, Exam, Assignment, Professor } from "../types";
