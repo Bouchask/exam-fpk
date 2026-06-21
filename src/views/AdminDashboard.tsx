@@ -90,6 +90,8 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
 
   const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(getCurrentTab());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGuardsModalOpen, setIsGuardsModalOpen] = useState(false);
+  const [selectedExamGuards, setSelectedExamGuards] = useState<{id: number; module: string; guards: string[]; guardCount: number} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -231,14 +233,38 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       setIsLoading(true);
       const response = await examService.getAll();
       if (response.success && response.data) {
-        setExams(response.data.map(e => ({
-          id: e.id,
-          module: e.module,
-          date: e.date,
-          time: `${e.start_time} - ${e.end_time}`,
-          type: e.exam_type,
-          room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
-        })));
+        // Fetch assignments for each exam to get professor guards
+        const examsWithGuards = await Promise.all(response.data.map(async (e) => {
+          try {
+            const assignmentsResponse = await examService.getAssignments(e.id);
+            const professors = assignmentsResponse.success && assignmentsResponse.data 
+              ? assignmentsResponse.data.map((a: any) => a.professor || a.professor_name || 'Unknown')
+              : [];
+            return {
+              id: e.id,
+              module: e.module,
+              date: e.date,
+              time: `${e.start_time} - ${e.end_time}`,
+              type: e.exam_type,
+              room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
+              guards: professors,
+              guardCount: professors.length
+            };
+          } catch (err) {
+            console.error(`Failed to fetch assignments for exam ${e.id}:`, err);
+            return {
+              id: e.id,
+              module: e.module,
+              date: e.date,
+              time: `${e.start_time} - ${e.end_time}`,
+              type: e.exam_type,
+              room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
+              guards: [],
+              guardCount: 0
+            };
+          }
+        }));
+        setExams(examsWithGuards);
       }
     } catch (err) {
       console.error('Failed to fetch exams:', err);
@@ -1033,6 +1059,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   };
 
   // Exam handlers
+  const showExamGuards = (exam: typeof exams[0]) => {
+    setSelectedExamGuards({
+      id: exam.id,
+      module: exam.module,
+      guards: exam.guards || [],
+      guardCount: exam.guardCount || 0
+    });
+    setIsGuardsModalOpen(true);
+  };
+
   const handleEditExam = (exam: typeof exams[0]) => {
     const selectedModule = modules.find(m => m.name === exam.module);
     let deptId = '';
@@ -1307,6 +1343,32 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     { header: "TIME", accessor: "time" as const },
     { header: "TYPE", accessor: (e: typeof exams[0]) => <span className="text-[9px] font-black px-2 py-1 bg-stone-100 border border-stone-200 uppercase tracking-widest">{e.type}</span> },
     { header: "ROOM", accessor: "room" as const },
+    { 
+      header: "GUARDS", 
+      accessor: (e: typeof exams[0]) => (
+        <div className="flex items-center gap-2">
+          {e.guardCount > 0 ? (
+            <>
+              <span className="text-[9px] font-black px-2 py-1 bg-green-100 border border-green-200 text-green-800 uppercase tracking-widest">
+                {e.guardCount} Prof{e.guardCount > 1 ? 's' : ''}
+              </span>
+              <button 
+                onClick={(e) => { e.stopPropagation(); showExamGuards(exam); }}
+                className="p-1 text-stone-500 hover:text-app-primary transition-colors"
+                title="View Guards"
+              >
+                <Users className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <span className="text-[9px] font-black px-2 py-1 bg-stone-100 border border-stone-200 text-stone-400 uppercase tracking-widest">
+              No Guards
+            </span>
+          )}
+        </div>
+      ),
+      className: "text-center w-32"
+    },
     { 
       header: "ACTION", 
       accessor: (exam: typeof exams[0]) => (
@@ -2230,6 +2292,44 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               className="px-4 py-2 bg-red-500 text-white text-xs font-bold uppercase tracking-wider hover:bg-red-600 transition-all disabled:opacity-50"
             >
               {isLoading ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Exam Guards Modal */}
+      <Modal
+        isOpen={isGuardsModalOpen}
+        onClose={() => setIsGuardsModalOpen(false)}
+        title={`Guards for ${selectedExamGuards?.module || 'Exam'}`}
+      >
+        <div className="p-4">
+          {selectedExamGuards && selectedExamGuards.guardCount > 0 ? (
+            <>
+              <p className="text-sm font-medium text-stone-600 mb-4">
+                {selectedExamGuards.guardCount} Professor{selectedExamGuards.guardCount > 1 ? 's' : ''} assigned as guards:
+              </p>
+              <div className="space-y-3">
+                {selectedExamGuards.guards.map((professor, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded"
+                  >
+                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">{professor}</span>
+                    <span className="text-[10px] text-stone-400 uppercase tracking-widest">Guard #{index + 1}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-stone-500 text-center py-4">No professors assigned as guards for this exam.</p>
+          )}
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={() => setIsGuardsModalOpen(false)}
+              className="px-4 py-2 bg-app-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-app-fg transition-all"
+            >
+              Close
             </button>
           </div>
         </div>
