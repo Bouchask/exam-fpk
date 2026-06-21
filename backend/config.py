@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# On Vercel, environment variables are already injected, so we only load .env in development
+if os.getenv('VERCEL_ENV') is None:
+    load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')

@@ -1,11 +1,18 @@
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+import os
+import sys
+
+# Add the backend directory to Python path
+# This is needed for both local execution and Vercel deployment
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, backend_dir)
+
 from config import config
 from models import db, User, Professor, Department, Salle, Exam, Assignment, Incident, AssignmentHistory, Filier, Module, ProfessorFilier
 from routes import register_blueprints
 from utils.database import init_db
-import os
 
 def create_app(config_name='default'):
     """Create and configure the Flask application"""
