@@ -91,14 +91,38 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(getCurrentTab());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGuardsModalOpen, setIsGuardsModalOpen] = useState(false);
+  const [isAssignGuardModalOpen, setIsAssignGuardModalOpen] = useState(false);
+  const [isReplaceGuardModalOpen, setIsReplaceGuardModalOpen] = useState(false);
+  const [isRemoveConfirmModalOpen, setIsRemoveConfirmModalOpen] = useState(false);
   const [selectedExamGuards, setSelectedExamGuards] = useState<{
     id: number; 
-    module: string; 
+    module: string;
+    module_id: number;
+    date: string;
+    time: string;
+    room: string;
     guards: Array<{name: string; department: string; id: number}>;
     guardCount: number;
     associatedProfessor: {name: string; id: number | null};
+    associatedProfessors: Array<{name: string; id: number; department: string}>;
     moduleProfessorDept: string;
+    salle_id?: number;
+    department_id?: number;
   } | null>(null);
+  const [availableProfessors, setAvailableProfessors] = useState<Array<{
+    id: number;
+    name: string;
+    department: string;
+    department_id?: number;
+    completed_guards: number;
+    max_guards: number;
+    is_quota_full: boolean;
+    is_selected: boolean;
+    is_associated: boolean;
+  }>>([]);
+  const [selectedProfessorIds, setSelectedProfessorIds] = useState<number[]>([]);
+  const [guardToRemove, setGuardToRemove] = useState<{id: number; name: string; index: number} | null>(null);
+  const [guardToReplace, setGuardToReplace] = useState<{id: number; name: string; index: number} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -151,6 +175,80 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; username?: string; email?: string; first_name?: string; last_name?: string; institutional_grade?: string; department?: string; user?: any } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleteConfirmType, setDeleteConfirmType] = useState<'salle' | 'professor' | 'department' | 'exam' | null>(null);
+
+  // Fetch available exam types when module_id changes
+  useEffect(() => {
+    if (!examForm.module_id) {
+      setAvailableExamTypes(['NORMAL', 'RATTRAPAGE']);
+      return;
+    }
+
+    const fetchExamTypes = async () => {
+      try {
+        // Use mock data fallback if backend is unavailable
+        if (useMockData) {
+          const selectedModule = modules.find(m => m.id === parseInt(examForm.module_id));
+          if (selectedModule) {
+            const existingExams = exams.filter(e => e.module === selectedModule.name);
+            const existingTypes = existingExams.map(e => e.type);
+            const availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+            setAvailableExamTypes(availableTypes);
+
+            // Auto-set exam_type if current one is not available
+            if (availableTypes.length > 0 && !availableTypes.includes(examForm.exam_type)) {
+              setExamForm(prev => ({
+                ...prev,
+                exam_type: availableTypes[0]
+              }));
+            }
+          }
+          return;
+        }
+
+        // Fetch from backend
+        const moduleExamsResponse = await examService.getByModule(parseInt(examForm.module_id));
+        if (moduleExamsResponse.success && moduleExamsResponse.data) {
+          const existingTypes = moduleExamsResponse.data.map((ex: any) => ex.exam_type);
+          const availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+          setAvailableExamTypes(availableTypes);
+
+          // Auto-set exam_type if current one is not available
+          if (availableTypes.length > 0 && !availableTypes.includes(examForm.exam_type)) {
+            setExamForm(prev => ({
+              ...prev,
+              exam_type: availableTypes[0]
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching exam types for module:', err);
+        // Fallback: try using all exams
+        try {
+          const allExamsResponse = await examService.getAll();
+          if (allExamsResponse.success && allExamsResponse.data) {
+            const existingTypes = allExamsResponse.data
+              .filter((ex: any) => ex.module_id === parseInt(examForm.module_id))
+              .map((ex: any) => ex.exam_type);
+            const availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+            setAvailableExamTypes(availableTypes);
+
+            if (availableTypes.length > 0 && !availableTypes.includes(examForm.exam_type)) {
+              setExamForm(prev => ({
+                ...prev,
+                exam_type: availableTypes[0]
+              }));
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('Error fetching all exams for fallback:', fallbackErr);
+          // If all else fails, keep both types available
+          setAvailableExamTypes(['NORMAL', 'RATTRAPAGE']);
+        }
+      }
+    };
+
+    fetchExamTypes();
+  }, [examForm.module_id, modules, exams, useMockData]);
 
   // Sync activeTab with URL hash - single source of truth
   useEffect(() => {
@@ -248,6 +346,10 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         const professorsResponse = await professorService.getAll();
         const allProfessors = professorsResponse.success && professorsResponse.data ? professorsResponse.data : [];
         
+        // Fetch filieres to get professors for each module's filier
+        const filieresResponse = await filierService.getAll(1, 100);
+        const allFilieres = filieresResponse.success && filieresResponse.data ? filieresResponse.data : [];
+        
         // Fetch assignments for each exam to get professor guards
         const examsWithGuards = await Promise.all(response.data.map(async (e) => {
           try {
@@ -263,17 +365,79 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               id: a.professor_id
             }));
             
-            // Find module info
-            const moduleInfo = allModules.find((m: any) => m.name === e.module || m.id === e.module_id);
-            const associatedProfessor = moduleInfo ? {
-              name: moduleInfo.professor_name || 'Not Assigned',
-              id: moduleInfo.professor_id
+            // Get associated professors from backend response (now includes associated_professors)
+            // Use the associated_professors from backend if available, otherwise build from module_obj
+            let associatedProfessors: Array<{name: string; id: number; department: string}> = [];
+            
+            // Method 1: Use associated_professors from backend response (new field)
+            if (e.associated_professors && Array.isArray(e.associated_professors) && e.associated_professors.length > 0) {
+              associatedProfessors = e.associated_professors.map((p: any) => ({
+                name: p.name || 'Unknown',
+                id: p.id,
+                department: p.department || 'Unknown'
+              }));
+            }
+            // Method 2: Try to get from module_obj.professor
+            else if (e.module_obj && e.module_obj.professor) {
+              associatedProfessors = [{
+                name: e.module_obj.professor.name || e.module_obj.professor_name || 'Unknown',
+                id: e.module_obj.professor.id || e.module_obj.professor_id,
+                department: e.module_obj.professor.department || 'Unknown'
+              }];
+            }
+            // Method 3: Try to get from module's filier
+            else if (e.module_obj && e.module_obj.filier_id) {
+              const filier = allFilieres.find((f: any) => f.id === e.module_obj.filier_id);
+              if (filier && filier.professors && Array.isArray(filier.professors) && filier.professors.length > 0) {
+                associatedProfessors = filier.professors.map((p: any) => ({
+                  name: p.name || 'Unknown',
+                  id: p.id,
+                  department: p.department || 'Unknown'
+                }));
+              }
+            }
+            // Method 4: Try to find module by module_id from all modules
+            else if (e.module_id) {
+              const module = allModules.find((m: any) => m.id === e.module_id);
+              if (module) {
+                // Check if module has professor_id
+                if (module.professor_id) {
+                  const prof = allProfessors.find((p: any) => p.id === module.professor_id);
+                  if (prof) {
+                    associatedProfessors = [{
+                      name: prof.name || 'Unknown',
+                      id: prof.id,
+                      department: prof.department || 'Unknown'
+                    }];
+                  }
+                }
+                // Check if module has filier with professors
+                else if (module.filier_id) {
+                  const filier = allFilieres.find((f: any) => f.id === module.filier_id);
+                  if (filier && filier.professors && Array.isArray(filier.professors) && filier.professors.length > 0) {
+                    associatedProfessors = filier.professors.map((p: any) => ({
+                      name: p.name || 'Unknown',
+                      id: p.id,
+                      department: p.department || 'Unknown'
+                    }));
+                  }
+                }
+              }
+            }
+            
+            // Get associated professor for backward compatibility
+            const associatedProfessor = associatedProfessors.length > 0 ? {
+              name: associatedProfessors[0].name,
+              id: associatedProfessors[0].id
             } : { name: 'Not Assigned', id: null };
             
             // Find professor department
-            const profDept = moduleInfo?.professor_id 
-              ? allProfessors.find((p: any) => p.id === moduleInfo.professor_id)?.department 
+            const profDept = associatedProfessor.id 
+              ? allProfessors.find((p: any) => p.id === associatedProfessor.id)?.department 
               : null;
+            
+            // Use guards_count from backend if available, otherwise use guards.length
+            const guardCount = e.guards_count !== undefined ? e.guards_count : guards.length;
             
             return {
               id: e.id,
@@ -283,9 +447,11 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               time: `${e.start_time} - ${e.end_time}`,
               type: e.exam_type,
               room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
+              salle_id: e.salle_id,
               guards: guards,
-              guardCount: guards.length,
+              guardCount: guardCount,
               associatedProfessor: associatedProfessor,
+              associatedProfessors: associatedProfessors,
               moduleProfessorDept: profDept || 'Unknown'
             };
           } catch (err) {
@@ -293,13 +459,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             return {
               id: e.id,
               module: e.module,
+              module_id: e.module_id,
               date: e.date,
               time: `${e.start_time} - ${e.end_time}`,
               type: e.exam_type,
               room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
+              salle_id: e.salle_id,
               guards: [],
               guardCount: 0,
               associatedProfessor: { name: 'Not Assigned', id: null },
+              associatedProfessors: [],
               moduleProfessorDept: 'Unknown'
             };
           }
@@ -841,6 +1010,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       // Real API call
       await examService.create({
         module: examForm.module,
+        module_id: examForm.module_id,
         module_code: modules.find(m => m.id === parseInt(examForm.module_id))?.code || '',
         exam_type: examForm.exam_type,
         date: examForm.date,
@@ -1100,19 +1270,780 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
 
   // Exam handlers
   const showExamGuards = (exam: typeof exams[0]) => {
+    // Find the exam's module to get department info
+    const examModule = modules.find(m => m.id === exam.module_id);
+    let deptId = exam.department_id;
+    let salleId = exam.salle_id;
+    
+    // Try to get department from module's filier if not directly on exam
+    if (!deptId && examModule?.filier_id) {
+      const filier = filieres.find(f => f.id === examModule.filier_id);
+      deptId = filier?.department_id;
+    }
+    
+    // Try to get salle_id if not available
+    if (!salleId && exam.room) {
+      const salle = salles.find(s => s.name === exam.room);
+      salleId = salle?.id;
+    }
+    
     setSelectedExamGuards({
       id: exam.id,
       module: exam.module,
+      module_id: exam.module_id,
+      date: exam.date,
+      time: exam.time,
+      room: exam.room,
       guards: exam.guards || [],
       guardCount: exam.guardCount || 0,
       associatedProfessor: exam.associatedProfessor || { name: 'Not Assigned', id: null },
-      moduleProfessorDept: exam.moduleProfessorDept || 'Unknown'
+      associatedProfessors: exam.associatedProfessors || [],
+      moduleProfessorDept: exam.moduleProfessorDept || 'Unknown',
+      salle_id: salleId,
+      department_id: deptId
     });
     setIsGuardsModalOpen(true);
   };
 
+  // Assign Guard handlers
+  const openAssignGuardModal = async () => {
+    if (!selectedExamGuards) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Get all professors with their quota status
+      const professorsResponse = await professorService.getAll(1, 100);
+      const allProfessors = professorsResponse.success && professorsResponse.data 
+        ? professorsResponse.data 
+        : [];
+      
+      // Get all modules to find the current exam's module
+      const modulesResponse = await moduleService.getAll(1, 100);
+      const allModules = modulesResponse.success && modulesResponse.data 
+        ? modulesResponse.data 
+        : [];
+      
+      // Get all filieres
+      const filieresResponse = await filierService.getAll(1, 100);
+      const allFilieres = filieresResponse.success && filieresResponse.data 
+        ? filieresResponse.data 
+        : [];
+      
+      // Get all departments
+      const deptsResponse = await departmentService.getAll(1, 50);
+      const allDepartments = deptsResponse.success && deptsResponse.data 
+        ? deptsResponse.data 
+        : [];
+      
+      // Find the current exam's module
+      const examModule = allModules.find(m => m.id === selectedExamGuards.module_id);
+      
+      // Determine the target department (module's department or exam's department)
+      let targetDeptId = selectedExamGuards.department_id;
+      if (!targetDeptId && examModule?.filier_id) {
+        const filier = allFilieres.find(f => f.id === examModule.filier_id);
+        targetDeptId = filier?.department_id;
+      }
+      if (!targetDeptId && examModule?.department_id) {
+        targetDeptId = examModule.department_id;
+      }
+      
+      // Get associated professor IDs for auto-selection
+      const associatedProfessorIds = new Set<number>(
+        selectedExamGuards.associatedProfessors.map(p => p.id)
+      );
+      if (selectedExamGuards.associatedProfessor?.id) {
+        associatedProfessorIds.add(selectedExamGuards.associatedProfessor.id);
+      }
+      
+      // Get already assigned guard IDs to exclude
+      const assignedGuardIds = new Set<number>(
+        selectedExamGuards.guards.map(g => g.id)
+      );
+      
+      // Filter available professors:
+      // 1. Not already assigned as guard to this exam
+      // 2. Have quota available (completed_guards < max_guards, typically 4)
+      // 3. Prefer same department as module's department
+      const availableProfList = allProfessors
+        .filter(p => !assignedGuardIds.has(p.id))
+        .filter(p => !p.is_quota_full)
+        .map(prof => {
+          const dept = allDepartments.find(d => d.id === prof.department_id);
+          return {
+            id: prof.id,
+            name: prof.name || (prof.user ? `${prof.user.first_name} ${prof.user.last_name}` : 'Unknown'),
+            department: prof.department || dept?.name || 'Unknown',
+            department_id: prof.department_id,
+            completed_guards: prof.completed_guards || 0,
+            max_guards: prof.max_guards || 4,
+            is_quota_full: prof.is_quota_full || false,
+            is_selected: associatedProfessorIds.has(prof.id),
+            is_associated: associatedProfessorIds.has(prof.id)
+          };
+        })
+        .sort((a, b) => {
+          // Sort by: associated first, then same department, then name
+          if (a.is_associated !== b.is_associated) return a.is_associated ? -1 : 1;
+          if (a.department_id === targetDeptId && b.department_id !== targetDeptId) return -1;
+          if (a.department_id !== targetDeptId && b.department_id === targetDeptId) return 1;
+          return a.name.localeCompare(b.name);
+        });
+      
+      setAvailableProfessors(availableProfList);
+      
+      // Auto-select associated professors (max 4 for auto-assignment)
+      const autoSelectIds = Array.from(associatedProfessorIds)
+        .filter(id => availableProfList.some(p => p.id === id))
+        .slice(0, 4); // Max 4 for auto-selection
+      
+      setSelectedProfessorIds(autoSelectIds);
+      
+      setIsAssignGuardModalOpen(true);
+      
+    } catch (err) {
+      console.error('Error loading available professors:', err);
+      setError('Failed to load available professors. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleProfessorSelection = (professorId: number) => {
+    setSelectedProfessorIds(prev => {
+      if (prev.includes(professorId)) {
+        return prev.filter(id => id !== professorId);
+      } else {
+        // Limit to 4 guards per exam (or more if needed, but check quota)
+        if (prev.length >= 4) {
+          return prev; // Don't allow more than 4 guards per exam for now
+        }
+        return [...prev, professorId];
+      }
+    });
+  };
+
+  const handleSelectAllAssociated = () => {
+    if (!selectedExamGuards) return;
+    
+    const associatedProfessorIds = new Set<number>(
+      selectedExamGuards.associatedProfessors.map(p => p.id)
+    );
+    if (selectedExamGuards.associatedProfessor?.id) {
+      associatedProfessorIds.add(selectedExamGuards.associatedProfessor.id);
+    }
+    
+    // Filter to only available professors and limit to 4
+    const availableAssociatedIds = Array.from(associatedProfessorIds)
+      .filter(id => availableProfessors.some(p => p.id === id && !p.is_quota_full))
+      .slice(0, 4);
+    
+    setSelectedProfessorIds(availableAssociatedIds);
+  };
+
+  // Auto-assignment logic based on user requirements
+  const handleAutoAssign = () => {
+    if (!selectedExamGuards) return;
+    
+    // Get all available professors from same department as module's filier
+    const examModule = modules.find(m => m.id === selectedExamGuards.module_id);
+    let targetDeptId = selectedExamGuards.department_id;
+    
+    if (!targetDeptId && examModule?.filier_id) {
+      const filier = filieres.find(f => f.id === examModule.filier_id);
+      targetDeptId = filier?.department_id;
+    }
+    if (!targetDeptId && examModule?.department_id) {
+      targetDeptId = examModule.department_id;
+    }
+    
+    // Get associated professor IDs (module professor + filier professors)
+    const associatedProfessorIds = new Set<number>(
+      selectedExamGuards.associatedProfessors.map(p => p.id)
+    );
+    if (selectedExamGuards.associatedProfessor?.id) {
+      associatedProfessorIds.add(selectedExamGuards.associatedProfessor.id);
+    }
+    
+    // Filter available professors:
+    // 1. From same department as module
+    // 2. Not already assigned
+    // 3. Have quota available
+    const deptProfessors = availableProfessors.filter(p => 
+      p.department_id === targetDeptId && !p.is_quota_full
+    );
+    
+    const associatedAndAvailable = deptProfessors.filter(p => 
+      associatedProfessorIds.has(p.id)
+    );
+    
+    // User's logic (as per request):
+    // "normal is 3 prof and prof of module (4 in total) normal"
+    // "but if min 3 professor is not problem accepte"
+    // "but if superieur 3 not" (if > 3, not acceptable for auto)
+    // "but if inferieur is normal" (if < 3, normal)
+    // 
+    // Interpretation:
+    // - ≤3 associated professors: NORMAL - auto-assign all
+    // - 4 associated professors (3 + module prof): NORMAL - auto-assign all
+    // - >4 associated professors: NOT acceptable - manual selection required
+    // - <3 associated professors: NORMAL - auto-assign all
+    
+    const associatedCount = associatedAndAvailable.length;
+    let professorsToSelect: number[] = [];
+    
+    if (associatedCount > 4) {
+      // More than 4 associated professors - NOT acceptable for auto
+      setError(`Cannot auto-assign: ${associatedCount} associated professors found. Maximum 4 guards per exam. Please select manually.`);
+      return;
+    }
+    
+    if (associatedCount <= 4) {
+      // NORMAL case: 1, 2, 3, or 4 associated professors - assign all
+      professorsToSelect = associatedAndAvailable.map(p => p.id);
+    }
+    
+    // If we have room for more guards (less than 4 total), 
+    // also try to add other professors from same department
+    const currentTotal = selectedExamGuards.guardCount + professorsToSelect.length;
+    if (currentTotal < 4) {
+      const remainingSlots = 4 - currentTotal;
+      const otherDeptProfessors = deptProfessors.filter(p => 
+        !associatedProfessorIds.has(p.id) && 
+        !professorsToSelect.includes(p.id)
+      );
+      
+      const additionalProfessors = otherDeptProfessors.slice(0, remainingSlots);
+      professorsToSelect = [...professorsToSelect, ...additionalProfessors.map(p => p.id)];
+    }
+    
+    // Final check: don't exceed 4 guards total for this exam
+    const totalAfter = selectedExamGuards.guardCount + professorsToSelect.length;
+    if (totalAfter > 4) {
+      professorsToSelect = professorsToSelect.slice(0, 4 - selectedExamGuards.guardCount);
+    }
+    
+    setSelectedProfessorIds(professorsToSelect);
+    
+    // Show success message with case analysis
+    const caseDescription = associatedCount <= 3 
+      ? "≤3 associated professors: NORMAL case"
+      : associatedCount === 4 
+        ? "4 associated professors: NORMAL case (3 + module prof)"
+        : "Manual selection required";
+    
+    if (professorsToSelect.length > 0) {
+      setSuccess(`✓ Auto-selected ${professorsToSelect.length} professor(s). ${caseDescription}`);
+    } else {
+      setError('No available professors to auto-assign.');
+    }
+  };
+
+  const handleAssignGuards = async () => {
+    if (!selectedExamGuards || selectedProfessorIds.length === 0) {
+      setError('Please select at least one professor to assign as guard.');
+      return;
+    }
+    
+    // Check if any selected professor is at quota limit
+    const quotaFullProfessors = availableProfessors
+      .filter(p => selectedProfessorIds.includes(p.id) && p.is_quota_full);
+    
+    if (quotaFullProfessors.length > 0) {
+      setError(`${quotaFullProfessors.map(p => p.name).join(', ')} have reached their guard quota (4). Cannot assign.`);
+      return;
+    }
+    
+    // Check if we're trying to assign more than 4 guards total
+    const totalGuardsAfter = selectedExamGuards.guardCount + selectedProfessorIds.length;
+    if (totalGuardsAfter > 4) {
+      setError(`Cannot assign more than 4 guards total to an exam. Currently: ${selectedExamGuards.guardCount}, Selected: ${selectedProfessorIds.length}`);
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Assign each selected professor
+      const assignments = [];
+      for (const profId of selectedProfessorIds) {
+        if (useMockData) {
+          // Update local state for mock data
+          const prof = availableProfessors.find(p => p.id === profId);
+          if (prof) {
+            assignments.push({
+              id: Date.now() + profId,
+              professor_id: profId,
+              professor: prof.name,
+              professor_department: prof.department,
+              exam_id: selectedExamGuards.id,
+              exam_module: selectedExamGuards.module,
+              exam_date: selectedExamGuards.date,
+              exam_time: selectedExamGuards.time,
+              exam_room: selectedExamGuards.room,
+              status: 'CONFIRMED',
+              assignment_date: new Date().toISOString()
+            });
+          }
+        } else {
+          // Real API call
+          const response = await examService.assignProfessor(
+            selectedExamGuards.id,
+            profId,
+            `Auto-assigned as guard for ${selectedExamGuards.module}`
+          );
+          if (response.success) {
+            assignments.push(response.data);
+          } else {
+            console.error(`Failed to assign professor ${profId}:`, response.message);
+          }
+        }
+      }
+      
+      if (useMockData) {
+        // Update local exams state
+        setExams(prev => prev.map(exam => {
+          if (exam.id === selectedExamGuards.id) {
+            const newGuards = [...(exam.guards || []), ...assignments.map(a => ({
+              name: a.professor,
+              department: a.professor_department,
+              id: a.professor_id
+            }))];
+            return {
+              ...exam,
+              guards: newGuards,
+              guardCount: newGuards.length
+            };
+          }
+          return exam;
+        }));
+        
+        // Update selectedExamGuards to reflect new assignments
+        setSelectedExamGuards(prev => prev ? {
+          ...prev,
+          guards: [...(prev.guards || []), ...assignments.map(a => ({
+            name: a.professor,
+            department: a.professor_department,
+            id: a.professor_id
+          }))],
+          guardCount: (prev.guardCount || 0) + assignments.length
+        } : null);
+      }
+      
+      setSuccess(`${assignments.length} guard(s) assigned successfully!`);
+      setIsAssignGuardModalOpen(false);
+      setSelectedProfessorIds([]);
+      
+      // Refresh exam data
+      if (!useMockData) {
+        await refreshExamGuards();
+      }
+      
+    } catch (err) {
+      console.error('Error assigning guards:', err);
+      setError('Failed to assign guards. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Remove Guard functionality
+  const handleRemoveGuard = async () => {
+    if (!guardToRemove || !selectedExamGuards) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      if (useMockData) {
+        // Update local state for mock data
+        setExams(prev => prev.map(exam => {
+          if (exam.id === selectedExamGuards.id) {
+            const newGuards = exam.guards?.filter(g => g.id !== guardToRemove.id) || [];
+            return {
+              ...exam,
+              guards: newGuards,
+              guardCount: newGuards.length
+            };
+          }
+          return exam;
+        }));
+        
+        // Update selectedExamGuards
+        setSelectedExamGuards(prev => prev ? {
+          ...prev,
+          guards: prev.guards.filter(g => g.id !== guardToRemove.id),
+          guardCount: prev.guardCount - 1
+        } : null);
+        
+        setSuccess(`Guard ${guardToRemove.name} removed successfully!`);
+      } else {
+        // Real API call
+        const response = await examService.unassignProfessor(
+          selectedExamGuards.id,
+          guardToRemove.id
+        );
+        
+        if (response.success) {
+          setSuccess(`Guard ${guardToRemove.name} removed successfully!`);
+          // Refresh data
+          await refreshExamGuards();
+        } else {
+          setError(response.message || 'Failed to remove guard.');
+        }
+      }
+      
+      // Close confirmation modal
+      setIsRemoveConfirmModalOpen(false);
+      setGuardToRemove(null);
+      
+    } catch (err) {
+      console.error('Error removing guard:', err);
+      setError('Failed to remove guard. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openRemoveConfirm = (guard: {id: number; name: string}, index: number) => {
+    setGuardToRemove({...guard, index});
+    setIsRemoveConfirmModalOpen(true);
+  };
+
+  // Refresh the guards for the currently selected exam
+  const refreshExamGuards = useCallback(async () => {
+    if (!selectedExamGuards) return;
+    
+    try {
+      // Fetch fresh exam data with assignments
+      const examResponse = await examService.getById(selectedExamGuards.id);
+      if (examResponse.success && examResponse.data) {
+        const freshExam = examResponse.data;
+        
+        // Fetch assignments for this exam
+        const assignmentsResponse = await examService.getAssignments(selectedExamGuards.id);
+        const assignments = assignmentsResponse.success && assignmentsResponse.data 
+          ? assignmentsResponse.data 
+          : [];
+        
+        // Get all professors for department info
+        const professorsResponse = await professorService.getAll(1, 100);
+        const allProfessors = professorsResponse.success && professorsResponse.data 
+          ? professorsResponse.data 
+          : [];
+        
+        // Get all filieres and modules for associated professors
+        const filieresResponse = await filierService.getAll(1, 100);
+        const allFilieres = filieresResponse.success && filieresResponse.data 
+          ? filieresResponse.data 
+          : [];
+        
+        // Get all modules
+        const modulesResponse = await moduleService.getAll(1, 100);
+        const allModules = modulesResponse.success && modulesResponse.data 
+          ? modulesResponse.data 
+          : [];
+        
+        // Get all departments
+        const deptsResponse = await departmentService.getAll(1, 50);
+        const allDepartments = deptsResponse.success && deptsResponse.data 
+          ? deptsResponse.data 
+          : [];
+        
+        // Build associated professors from module
+        const examModule = allModules.find(m => m.id === freshExam.module_id);
+        let associatedProfessors: Array<{name: string; id: number; department: string}> = [];
+        
+        if (freshExam.associated_professors && Array.isArray(freshExam.associated_professors) && freshExam.associated_professors.length > 0) {
+          associatedProfessors = freshExam.associated_professors.map((p: any) => ({
+            name: p.name || 'Unknown',
+            id: p.id,
+            department: p.department || 'Unknown'
+          }));
+        } else if (examModule?.professor_id) {
+          const prof = allProfessors.find((p: any) => p.id === examModule.professor_id);
+          if (prof) {
+            associatedProfessors = [{
+              name: prof.name || prof.user?.full_name || 'Unknown',
+              id: prof.id,
+              department: prof.department || allDepartments.find((d: any) => d.id === prof.department_id)?.name || 'Unknown'
+            }];
+          }
+        } else if (examModule?.filier_id) {
+          const filier = allFilieres.find(f => f.id === examModule.filier_id);
+          if (filier && filier.professors) {
+            associatedProfessors = filier.professors.map((p: any) => ({
+              name: p.name || p.user?.full_name || 'Unknown',
+              id: p.id,
+              department: p.department || allDepartments.find((d: any) => d.id === p.department_id)?.name || 'Unknown'
+            }));
+          }
+        }
+        
+        // Build associated professor (first one for backward compatibility)
+        const associatedProfessor = associatedProfessors.length > 0 ? {
+          name: associatedProfessors[0].name,
+          id: associatedProfessors[0].id
+        } : { name: 'Not Assigned', id: null };
+        
+        // Get module professor department
+        let moduleProfessorDept = 'Unknown';
+        if (examModule?.professor_id) {
+          const prof = allProfessors.find((p: any) => p.id === examModule.professor_id);
+          moduleProfessorDept = prof?.department || allDepartments.find((d: any) => d.id === prof?.department_id)?.name || 'Unknown';
+        }
+        
+        // Build guards list from assignments
+        const guards = assignments.map((a: any) => ({
+          name: a.professor || a.professor_name || 'Unknown',
+          department: a.professor_department || 'Unknown',
+          id: a.professor_id
+        }));
+        
+        // Update the selected exam guards
+        setSelectedExamGuards({
+          id: freshExam.id,
+          module: freshExam.module,
+          module_id: freshExam.module_id,
+          date: freshExam.date,
+          time: `${freshExam.start_time} - ${freshExam.end_time}`,
+          room: typeof freshExam.salle === 'string' ? freshExam.salle : freshExam.salle?.name || 'Unknown',
+          salle_id: freshExam.salle_id,
+          department_id: freshExam.department_id,
+          guards: guards,
+          guardCount: guards.length,
+          associatedProfessor: associatedProfessor,
+          associatedProfessors: associatedProfessors,
+          moduleProfessorDept: moduleProfessorDept
+        });
+        
+        // Also update the exams list
+        setExams(prev => prev.map(exam => 
+          exam.id === freshExam.id 
+            ? {
+                ...exam,
+                guards: guards,
+                guardCount: guards.length,
+                associatedProfessor: associatedProfessor,
+                associatedProfessors: associatedProfessors,
+                moduleProfessorDept: moduleProfessorDept
+              }
+            : exam
+        ));
+        
+      }
+    } catch (err) {
+      console.error('Error refreshing exam guards:', err);
+      // Fallback: just fetch all exams
+      await fetchExams();
+    }
+  }, [selectedExamGuards, fetchExams, professorService, examService, moduleService, filierService, departmentService]);
+
+  // Replace Guard functionality
+  const openReplaceGuardModal = async (guard: {id: number; name: string}, index: number) => {
+    setGuardToReplace({...guard, index});
+    
+    // Open the assign modal but with the guard to replace pre-selected for removal
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Get all professors with their quota status
+      const professorsResponse = await professorService.getAll(1, 100);
+      const allProfessors = professorsResponse.success && professorsResponse.data 
+        ? professorsResponse.data 
+        : [];
+      
+      // Get all modules to find the current exam's module
+      const modulesResponse = await moduleService.getAll(1, 100);
+      const allModules = modulesResponse.success && modulesResponse.data 
+        ? modulesResponse.data 
+        : [];
+      
+      // Get all filieres
+      const filieresResponse = await filierService.getAll(1, 100);
+      const allFilieres = filieresResponse.success && filieresResponse.data 
+        ? filieresResponse.data 
+        : [];
+      
+      // Get all departments
+      const deptsResponse = await departmentService.getAll(1, 50);
+      const allDepartments = deptsResponse.success && deptsResponse.data 
+        ? deptsResponse.data 
+        : [];
+      
+      // Find the current exam's module
+      const examModule = allModules.find(m => m.id === selectedExamGuards?.module_id);
+      
+      // Determine the target department
+      let targetDeptId = selectedExamGuards?.department_id;
+      if (!targetDeptId && examModule?.filier_id) {
+        const filier = allFilieres.find(f => f.id === examModule.filier_id);
+        targetDeptId = filier?.department_id;
+      }
+      if (!targetDeptId && examModule?.department_id) {
+        targetDeptId = examModule.department_id;
+      }
+      
+      // Get associated professor IDs for auto-selection
+      const associatedProfessorIds = new Set<number>(
+        selectedExamGuards?.associatedProfessors?.map(p => p.id) || []
+      );
+      if (selectedExamGuards?.associatedProfessor?.id) {
+        associatedProfessorIds.add(selectedExamGuards.associatedProfessor.id);
+      }
+      
+      // Get already assigned guard IDs to exclude (except the one being replaced)
+      const assignedGuardIds = new Set<number>(
+        selectedExamGuards?.guards?.map(g => g.id) || []
+      );
+      // Remove the guard being replaced from the exclusion set
+      assignedGuardIds.delete(guard.id);
+      
+      // Filter available professors:
+      // 1. Not already assigned as guard to this exam (except the one being replaced)
+      // 2. Have quota available (completed_guards < max_guards, typically 4)
+      // 3. Prefer same department as module's department
+      const availableProfList = allProfessors
+        .filter(p => !assignedGuardIds.has(p.id))
+        .filter(p => !p.is_quota_full)
+        .map(prof => {
+          const dept = allDepartments.find(d => d.id === prof.department_id);
+          return {
+            id: prof.id,
+            name: prof.name || (prof.user ? `${prof.user.first_name} ${prof.user.last_name}` : 'Unknown'),
+            department: prof.department || dept?.name || 'Unknown',
+            department_id: prof.department_id,
+            completed_guards: prof.completed_guards || 0,
+            max_guards: prof.max_guards || 4,
+            is_quota_full: prof.is_quota_full || false,
+            is_selected: false,
+            is_associated: associatedProfessorIds.has(prof.id)
+          };
+        })
+        .sort((a, b) => {
+          // Sort by: associated first, then same department, then name
+          if (a.is_associated !== b.is_associated) return a.is_associated ? -1 : 1;
+          if (a.department_id === targetDeptId && b.department_id !== targetDeptId) return -1;
+          if (a.department_id !== targetDeptId && b.department_id === targetDeptId) return 1;
+          return a.name.localeCompare(b.name);
+        });
+      
+      setAvailableProfessors(availableProfList);
+      setSelectedProfessorIds([]); // Start fresh for replace
+      setIsReplaceGuardModalOpen(true);
+      
+    } catch (err) {
+      console.error('Error loading available professors for replace:', err);
+      setError('Failed to load available professors. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReplaceGuard = async () => {
+    if (!guardToReplace || !selectedExamGuards || selectedProfessorIds.length === 0) {
+      setError('Please select a professor to replace the current guard.');
+      return;
+    }
+    
+    // Can only replace with one professor at a time
+    const newProfessorId = selectedProfessorIds[0];
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // First, unassign the old guard
+      if (useMockData) {
+        // Update local state for mock data - remove old, add new
+        setExams(prev => prev.map(exam => {
+          if (exam.id === selectedExamGuards.id) {
+            const newGuards = exam.guards?.filter(g => g.id !== guardToReplace.id) || [];
+            const newProfessor = availableProfessors.find(p => p.id === newProfessorId);
+            if (newProfessor) {
+              newGuards.push({
+                name: newProfessor.name,
+                department: newProfessor.department,
+                id: newProfessor.id
+              });
+            }
+            return {
+              ...exam,
+              guards: newGuards,
+              guardCount: newGuards.length
+            };
+          }
+          return exam;
+        }));
+        
+        // Update selectedExamGuards
+        const newProfessor = availableProfessors.find(p => p.id === newProfessorId);
+        setSelectedExamGuards(prev => prev ? {
+          ...prev,
+          guards: prev.guards
+            .filter(g => g.id !== guardToReplace.id)
+            .concat(newProfessor ? [{
+              name: newProfessor.name,
+              department: newProfessor.department,
+              id: newProfessor.id
+            }] : []),
+          guardCount: prev.guardCount
+        } : null);
+        
+        setSuccess(`Guard replaced: ${guardToReplace.name} → ${newProfessor?.name || 'New Professor'}`);
+      } else {
+        // Real API calls
+        // Step 1: Unassign old guard
+        const unassignResponse = await examService.unassignProfessor(
+          selectedExamGuards.id,
+          guardToReplace.id
+        );
+        
+        if (!unassignResponse.success) {
+          setError(unassignResponse.message || 'Failed to remove old guard.');
+          return;
+        }
+        
+        // Step 2: Assign new guard
+        const assignResponse = await examService.assignProfessor(
+          selectedExamGuards.id,
+          newProfessorId,
+          `Replacement for ${guardToReplace.name}`
+        );
+        
+        if (assignResponse.success) {
+          setSuccess(`Guard replaced: ${guardToReplace.name} → ${availableProfessors.find(p => p.id === newProfessorId)?.name || 'New Professor'}`);
+          // Refresh data
+          await refreshExamGuards();
+        } else {
+          setError(assignResponse.message || 'Failed to assign new guard.');
+        }
+      }
+      
+      // Close modals
+      setIsReplaceGuardModalOpen(false);
+      setGuardToReplace(null);
+      setSelectedProfessorIds([]);
+      
+    } catch (err) {
+      console.error('Error replacing guard:', err);
+      setError('Failed to replace guard. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditExam = (exam: typeof exams[0]) => {
-    const selectedModule = modules.find(m => m.name === exam.module);
+    // Try to find module by module_id first, then by name
+    let selectedModule = modules.find(m => m.id === exam.module_id);
+    if (!selectedModule) {
+      selectedModule = modules.find(m => m.name === exam.module);
+    }
+    
     let deptId = '';
     let deptName = '';
     
@@ -1132,7 +2063,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     // Set the exam data for editing
     const examToEdit = {
       id: exam.id,
-      module_id: selectedModule?.id?.toString() || '',
+      module_id: exam.module_id?.toString() || selectedModule?.id?.toString() || '',
       module: exam.module,
       date: exam.date,
       start_time: exam.time?.split(' - ')[0] || '',
@@ -1279,6 +2210,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       // Real API call - update exam
       await examService.update(editingExam.id, {
         module: examForm.module,
+        module_id: examForm.module_id,
         module_code: modules.find(m => m.id === parseInt(examForm.module_id))?.code || '',
         exam_type: examForm.exam_type,
         date: examForm.date,
@@ -1391,8 +2323,12 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         <div className="flex items-center gap-2">
           {e.guardCount > 0 ? (
             <>
-              <span className="text-[9px] font-black px-2 py-1 bg-green-100 border border-green-200 text-green-800 uppercase tracking-widest">
-                {e.guardCount} Prof{e.guardCount > 1 ? 's' : ''}
+              <span 
+                className="text-[9px] font-black px-2 py-1 bg-green-100 border border-green-200 text-green-800 uppercase tracking-widest cursor-pointer hover:bg-green-200 transition-colors"
+                onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
+                title="View Assigned Guards"
+              >
+                {e.guardCount} Guard{e.guardCount > 1 ? 's' : ''}
               </span>
               <button 
                 onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
@@ -1403,9 +2339,40 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               </button>
             </>
           ) : (
-            <span className="text-[9px] font-black px-2 py-1 bg-stone-100 border border-stone-200 text-stone-400 uppercase tracking-widest">
-              No Guards
-            </span>
+            <>
+              {e.associatedProfessors && e.associatedProfessors.length > 0 ? (
+                <span 
+                  className="text-[9px] font-black px-2 py-1 bg-yellow-100 border border-yellow-200 text-yellow-800 uppercase tracking-widest cursor-pointer hover:bg-yellow-200 transition-colors"
+                  onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
+                  title={`Associated Professors: ${e.associatedProfessors.map(p => p.name).join(', ')}`}
+                >
+                  {e.associatedProfessors.length === 1 ? (
+                    <>
+                      {e.associatedProfessors[0].name}
+                    </>
+                  ) : (
+                    <>
+                      {e.associatedProfessors.length > 2 ? (
+                        <>
+                          {e.associatedProfessors.slice(0, 2).map(p => p.name).join(', ')}
+                          {` +${e.associatedProfessors.length - 2} more`}
+                        </>
+                      ) : (
+                        e.associatedProfessors.map(p => p.name).join(', ')
+                      )}
+                    </>
+                  )}
+                </span>
+              ) : (
+                <span 
+                  className="text-[9px] font-black px-2 py-1 bg-stone-100 border border-stone-200 text-stone-500 uppercase tracking-widest cursor-pointer hover:bg-stone-200 transition-colors"
+                  onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
+                  title="No professor is currently associated with this module"
+                >
+                  No Prof Assigned
+                </span>
+              )}
+            </>
           )}
         </div>
       ),
@@ -1598,7 +2565,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Module / Subject</label>
               <select 
                 value={examForm.module_id}
-                onChange={async (e) => {
+                onChange={(e) => {
                   const selectedModule = modules.find(m => m.id === parseInt(e.target.value));
                   let deptId = '';
                   let deptName = '';
@@ -1625,57 +2592,13 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                     }
                   }
                   
-                  // Fetch existing exams for this module to determine available types
-                  let availableTypes = ['NORMAL', 'RATTRAPAGE'];
-                  if (selectedModule) {
-                    if (useMockData) {
-                      const existingExams = exams.filter(e => e.module === selectedModule.name);
-                      const existingTypes = existingExams.map(e => e.type);
-                      availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
-                    } else {
-                      try {
-                        const moduleExamsResponse = await examService.getByModule(parseInt(e.target.value));
-                        if (moduleExamsResponse.success && moduleExamsResponse.data) {
-                          const existingTypes = moduleExamsResponse.data.map((ex: any) => ex.exam_type);
-                          availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
-                        }
-                      } catch (err) {
-                        console.error('Error fetching module exams:', err);
-                        // Fallback: use all exams and filter by module
-                        try {
-                          const allExamsResponse = await examService.getAll();
-                          if (allExamsResponse.success && allExamsResponse.data) {
-                            const existingTypes = allExamsResponse.data
-                              .filter((ex: any) => ex.module_id === parseInt(e.target.value))
-                              .map((ex: any) => ex.exam_type);
-                            availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
-                          }
-                        } catch (fallbackErr) {
-                          console.error('Error fetching all exams for fallback:', fallbackErr);
-                          // If all else fails, keep both types available
-                        }
-                      }
-                    }
-                  }
-                  
-                  // Set first available type as default, or keep current if it's still available
-                  let defaultType = examForm.exam_type;
-                  if (availableTypes.length > 0) {
-                    if (!availableTypes.includes(examForm.exam_type)) {
-                      defaultType = availableTypes[0];
-                    }
-                  } else {
-                    defaultType = 'NORMAL';
-                  }
-                  
-                  setAvailableExamTypes(availableTypes);
+                  // Update form with module selection (synchronous)
                   setExamForm({
                     ...examForm,
                     module_id: e.target.value,
                     module: selectedModule ? selectedModule.name : '',
                     department_id: deptId,
                     department_name: deptName,
-                    exam_type: defaultType,
                   });
                 }}
                 className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
@@ -1683,7 +2606,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               >
                 <option value="">Select a Module</option>
                 {modules.filter(m => m.is_active !== false).map(module => (
-                  <option key={module.id} value={module.id}>{module.name} {module.code && `- ${module.code}`}</option>
+                  <option key={module.id} value={module.id.toString()}>{module.name} {module.code && `- ${module.code}`}</option>
                 ))}
               </select>
             </div>
@@ -1773,7 +2696,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                 >
                   <option value="">Select a Room</option>
                   {salles.filter(s => s.is_active).map(salle => (
-                    <option key={salle.id} value={salle.id}>{salle.name} ({salle.code}) - {salle.type} {salle.capacity > 0 && `- Cap: ${salle.capacity}`}</option>
+                    <option key={salle.id} value={salle.id.toString()}>{salle.name} ({salle.code}) - {salle.type} {salle.capacity > 0 && `- Cap: ${salle.capacity}`}</option>
                   ))}
                 </select>
               </div>
@@ -2343,64 +3266,673 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       <Modal
         isOpen={isGuardsModalOpen}
         onClose={() => setIsGuardsModalOpen(false)}
-        title={`Guards for ${selectedExamGuards?.module || 'Exam'}`}
+        title={selectedExamGuards?.guardCount > 0 ? `Guards for ${selectedExamGuards?.module || 'Exam'}` : `Associated Professors for ${selectedExamGuards?.module || 'Module'}`}
+        size="lg"
       >
         <div className="p-4">
           {selectedExamGuards ? (
             <>
-              {/* Module Associated Professor */}
+              {/* Exam Information */}
               <div className="mb-6 p-4 bg-stone-50 border border-stone-200 rounded">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">Module Professor (Associé)</h4>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
-                    {selectedExamGuards.associatedProfessor.name}
-                  </span>
-                  <span className="text-[10px] text-stone-400 uppercase tracking-widest">
-                    {selectedExamGuards.moduleProfessorDept}
-                  </span>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-3">Exam Information</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Module:</span>
+                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.module}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Professor:</span>
+                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
+                      {selectedExamGuards.associatedProfessors && selectedExamGuards.associatedProfessors.length > 0 ? (
+                        selectedExamGuards.associatedProfessors.length > 2 ? (
+                          <>
+                            {selectedExamGuards.associatedProfessors.slice(0, 2).map(p => p.name).join(', ')}
+                            {` +${selectedExamGuards.associatedProfessors.length - 2} more`}
+                          </>
+                        ) : (
+                          selectedExamGuards.associatedProfessors.map(p => p.name).join(', ')
+                        )
+                      ) : (
+                        selectedExamGuards.associatedProfessor?.name || 'Not Assigned'
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Date:</span>
+                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Room:</span>
+                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.room}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Time:</span>
+                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.time}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Guards List */}
-              <div className="mb-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">
-                  Exam Guards ({selectedExamGuards.guardCount})
-                </h4>
-                {selectedExamGuards.guardCount > 0 ? (
-                  <div className="space-y-3">
-                    {selectedExamGuards.guards.map((guard, index) => (
-                      <div 
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-white border border-stone-100 rounded"
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
-                            {guard.name}
-                          </span>
-                          <span className="text-[10px] text-stone-400 uppercase tracking-widest">
-                            Dept: {guard.department}
-                          </span>
+              {selectedExamGuards.guardCount > 0 ? (
+                <>
+                  {/* Assigned Guards */}
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-green-800 mb-2">
+                      Assigned Guards ({selectedExamGuards.guardCount})
+                    </h4>
+                    <div className="space-y-3">
+                      {selectedExamGuards.guards.map((guard, index) => (
+                        <div 
+                          key={guard.id || index}
+                          className="flex items-center justify-between p-3 bg-white border border-stone-100 rounded group"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
+                              Prof {guard.name}
+                            </span>
+                            <span className="text-[10px] text-stone-400 uppercase tracking-widest">
+                              Dept: {guard.department}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-green-600 uppercase tracking-widest">
+                              Guard #{index + 1}
+                            </span>
+                            <button
+                              onClick={() => openReplaceGuardModal(guard, index)}
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                              title={`Replace ${guard.name}`}
+                            >
+                              <RefreshCcw className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => openRemoveConfirm(guard, index)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                              title={`Remove ${guard.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <span className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
-                          Guard #{index + 1}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-stone-500 text-center py-4">No professors assigned as guards for this exam.</p>
-                )}
-              </div>
+                  
+                  {/* Actions for Guards Assigned */}
+                  <div className="flex gap-2 mb-4">
+                    <button 
+                      onClick={openAssignGuardModal}
+                      className="flex-1 px-3 py-2 bg-app-primary text-white text-[10px] font-bold uppercase tracking-wider hover:bg-app-fg transition-all disabled:opacity-50"
+                      disabled={isLoading || selectedExamGuards.guardCount >= 4}
+                      title="Add more guards to this exam (max 4 total)"
+                    >
+                      Add More Guard
+                    </button>
+                    <button 
+                      className="flex-1 px-3 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-red-600 transition-all disabled:opacity-50 cursor-not-allowed"
+                      disabled={selectedExamGuards.guardCount === 0}
+                      title="Click the trash icon on a guard card to remove"
+                    >
+                      Remove Guard
+                    </button>
+                    <button 
+                      className="flex-1 px-3 py-2 bg-yellow-500 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-600 transition-all disabled:opacity-50 cursor-not-allowed"
+                      disabled={selectedExamGuards.guardCount === 0}
+                      title="Click the refresh icon on a guard card to replace"
+                    >
+                      Replace Guard
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* No Guards Assigned - Show Associated Professors */}
+                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-yellow-800 mb-2">
+                      No guards assigned yet
+                    </h4>
+                    <p className="text-sm text-stone-600 mb-3">
+                      Associated Professors for this module:
+                    </p>
+                    
+                    {selectedExamGuards.associatedProfessors && selectedExamGuards.associatedProfessors.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedExamGuards.associatedProfessors.map((prof, index) => (
+                          <div 
+                            key={prof.id || index}
+                            className="flex items-center justify-between p-3 bg-white border border-stone-100 rounded"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
+                                Dr {prof.name}
+                              </span>
+                              <span className="text-[10px] text-stone-400 uppercase tracking-widest">
+                                Dept: {prof.department}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">
+                              Professor #{index + 1}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-stone-500 text-center py-2">
+                        No professor is currently associated with this module.
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Action Button */}
+                  <div className="mb-4">
+                    <button 
+                      onClick={openAssignGuardModal}
+                      className="w-full px-4 py-3 bg-app-primary text-white text-sm font-bold uppercase tracking-wider hover:bg-app-fg transition-all disabled:opacity-50"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Loading...' : 'Assign Guards'}
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           ) : null}
           <div className="flex justify-end mt-6">
             <button
               onClick={() => setIsGuardsModalOpen(false)}
-              className="px-4 py-2 bg-app-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-app-fg transition-all"
+              className="px-4 py-2 bg-stone-400 text-white text-xs font-bold uppercase tracking-wider hover:bg-stone-500 transition-all"
             >
               Close
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Assign Guard Modal */}
+      <Modal
+        isOpen={isAssignGuardModalOpen}
+        onClose={() => {
+          setIsAssignGuardModalOpen(false);
+          setSelectedProfessorIds([]);
+          setError(null);
+        }}
+        title={`Assign Guards to ${selectedExamGuards?.module || 'Exam'}`}
+        size="lg"
+      >
+        <div className="p-4 space-y-4">
+          {selectedExamGuards && (
+            <>
+              {/* Exam Info Summary */}
+              <div className="p-4 bg-stone-50 border border-stone-200 rounded">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Module:</span>
+                    <div className="font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.module}</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Date:</span>
+                    <div className="font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.date}</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Time:</span>
+                    <div className="font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.time}</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Room:</span>
+                    <div className="font-bold text-app-fg uppercase tracking-wider">{selectedExamGuards.room}</div>
+                  </div>
+                </div>
+                
+                {/* Current guards info */}
+                {selectedExamGuards.guardCount > 0 && (
+                  <div className="mt-4 pt-4 border-t border-stone-200">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Current Guards:</span>
+                    <div className="font-bold text-app-fg uppercase tracking-wider">
+                      {selectedExamGuards.guardCount} guard{selectedExamGuards.guardCount > 1 ? 's' : ''} assigned
+                    </div>
+                  </div>
+                )}
+                
+                {/* Associated professors info */}
+                {selectedExamGuards.associatedProfessors && selectedExamGuards.associatedProfessors.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Associated Professors:</span>
+                    <div className="font-bold text-app-primary uppercase tracking-wider text-xs">
+                      {selectedExamGuards.associatedProfessors.map(p => p.name).join(', ')}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quota Warning */}
+              {selectedExamGuards.guardCount >= 4 && (
+                <div className="p-3 bg-yellow-100 border border-yellow-300 rounded">
+                  <p className="text-xs font-bold text-yellow-800 uppercase tracking-wider">
+                    ⚠️ This exam already has {selectedExamGuards.guardCount} guards assigned. 
+                    Maximum of 4 guards per exam.
+                  </p>
+                </div>
+              )}
+
+              {/* Auto-Assignment Logic Info */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">
+                  📋 AUTO-ASSIGNMENT LOGIC:
+                </p>
+                <ul className="text-[10px] text-blue-700 mt-2 space-y-1">
+                  <li>• Max 4 guards per professor (quota limit)</li>
+                  <li>• Prefers professors from same department as module</li>
+                  <li>• Prioritizes associated professors (module + filier)</li>
+                  <li>• ≤4 associated professors: ALL auto-selected</li>
+                  <li>• &gt;4 associated professors: Manual selection required</li>
+                  <li>• Max 4 guards total per exam</li>
+                </ul>
+              </div>
+
+              {/* Available Professors List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-app-fg">
+                    Available Professors ({availableProfessors.length})
+                  </h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAutoAssign}
+                      className="text-[10px] font-bold uppercase tracking-wider text-green-600 hover:underline flex items-center gap-1"
+                      title="Auto-select professors based on module association and department"
+                    >
+                      <span>⚡ Auto-Assign</span>
+                    </button>
+                    <button
+                      onClick={handleSelectAllAssociated}
+                      className="text-[10px] font-bold uppercase tracking-wider text-app-primary hover:underline"
+                    >
+                      Select All Associated
+                    </button>
+                  </div>
+                </div>
+                
+                {availableProfessors.length === 0 ? (
+                  <p className="text-sm text-stone-500 text-center py-4">
+                    No available professors found. All professors may have reached their quota limit (4 guards max).
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto border border-stone-100 rounded">
+                    {availableProfessors.map((prof) => {
+                      // Determine if this professor is from the target department
+                      const examModule = modules.find(m => m.id === selectedExamGuards?.module_id);
+                      let targetDeptId = selectedExamGuards?.department_id;
+                      
+                      if (!targetDeptId && examModule?.filier_id) {
+                        const filier = filieres.find(f => f.id === examModule.filier_id);
+                        targetDeptId = filier?.department_id;
+                      }
+                      if (!targetDeptId && examModule?.department_id) {
+                        targetDeptId = examModule.department_id;
+                      }
+                      
+                      const isFromTargetDept = prof.department_id === targetDeptId;
+                      const quotaPercentage = ((prof.completed_guards || 0) / (prof.max_guards || 4)) * 100;
+                      
+                      return (
+                        <div
+                          key={prof.id}
+                          onClick={() => handleProfessorSelection(prof.id)}
+                          className={`p-3 border-b border-stone-100 last:border-b-0 cursor-pointer transition-all ${
+                            selectedProfessorIds.includes(prof.id) 
+                              ? 'bg-app-primary text-white' 
+                              : 'bg-white hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold uppercase tracking-wider">
+                                  {prof.name}
+                                </span>
+                                {prof.is_associated && (
+                                  <span 
+                                    className="text-[8px] px-1.5 py-0.5 bg-yellow-400 text-yellow-900 font-black uppercase tracking-wider rounded"
+                                    title="Associated with this module"
+                                  >
+                                    ASSOCIATED
+                                  </span>
+                                )}
+                                {isFromTargetDept && !prof.is_associated && (
+                                  <span 
+                                    className="text-[8px] px-1.5 py-0.5 bg-blue-400 text-blue-900 font-black uppercase tracking-wider rounded"
+                                    title="From same department as module"
+                                  >
+                                    SAME DEPT
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 mt-1">
+                                <span className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                  {prof.department}
+                                </span>
+                                <span className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                  Quota: {prof.completed_guards}/{prof.max_guards}
+                                </span>
+                                <div className="flex-1 h-2 bg-stone-200 rounded-full overflow-hidden ml-2">
+                                  <div 
+                                    className={`h-full transition-all ${quotaPercentage > 80 ? 'bg-red-500' : quotaPercentage > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                    style={{ width: `${quotaPercentage}%` }}
+                                    title={`Quota: ${prof.completed_guards}/${prof.max_guards} (${Math.round(quotaPercentage)}%)`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {selectedProfessorIds.includes(prof.id) && (
+                                <span className="text-green-400">✓ Selected</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Selection Summary */}
+              {selectedProfessorIds.length > 0 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-green-800">
+                        Selected: {selectedProfessorIds.length} professor{selectedProfessorIds.length > 1 ? 's' : ''}
+                      </span>
+                      <div className="text-xs text-green-700 mt-1">
+                        {selectedProfessorIds.map(id => {
+                          const prof = availableProfessors.find(p => p.id === id);
+                          return prof ? prof.name : '';
+                        }).filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                    <span className="text-lg font-bold text-green-800">
+                      {selectedProfessorIds.length}
+                    </span>
+                  </div>
+                  
+                  {/* Auto-assignment logic feedback */}
+                  {selectedProfessorIds.length <= 4 && (
+                    <p className="text-[10px] text-green-700 mt-2">
+                      ✓ Ready for assignment. Total guards after assignment: {selectedExamGuards.guardCount + selectedProfessorIds.length}/4
+                    </p>
+                  )}
+                  {selectedProfessorIds.length > 4 && (
+                    <p className="text-[10px] text-red-700 mt-2">
+                      ✗ Cannot assign more than 4 guards to an exam
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4 border-t border-stone-200">
+                <button
+                  onClick={async () => {
+                    await handleAutoAssign();
+                    await handleAssignGuards();
+                  }}
+                  disabled={isLoading || (availableProfessors.length === 0 && selectedProfessorIds.length === 0)}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white text-sm font-bold uppercase tracking-wider hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Auto-select and assign guards in one click"
+                >
+                  {isLoading ? 'Processing...' : '⚡ OK (Auto-Assign & Assign)'}
+                </button>
+                
+                <button
+                  onClick={handleAssignGuards}
+                  disabled={selectedProfessorIds.length === 0 || selectedProfessorIds.length > 4 || isLoading}
+                  className="flex-1 px-4 py-3 bg-green-600 text-white text-sm font-bold uppercase tracking-wider hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Assigning...' : `Assign ${selectedProfessorIds.length} Guard${selectedProfessorIds.length > 1 ? 's' : ''}`}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setIsAssignGuardModalOpen(false);
+                    setSelectedProfessorIds([]);
+                    setError(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-stone-400 text-white text-sm font-bold uppercase tracking-wider hover:bg-stone-500 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+          
+          {error && (
+            <div className="p-3 bg-red-100 border border-red-300 rounded">
+              <p className="text-xs font-bold text-red-800 uppercase tracking-wider">{error}</p>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Remove Guard Confirmation Modal */}
+      <Modal
+        isOpen={isRemoveConfirmModalOpen}
+        onClose={() => {
+          setIsRemoveConfirmModalOpen(false);
+          setGuardToRemove(null);
+          setError(null);
+        }}
+        title="Confirm Remove Guard"
+        size="md"
+      >
+        <div className="p-4">
+          {guardToRemove && (
+            <>
+              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-sm text-stone-700 mb-4">
+                  Are you sure you want to remove 
+                  <span className="font-bold text-app-fg uppercase">{guardToRemove.name}</span> 
+                  as a guard from the exam 
+                  <span className="font-bold text-app-fg uppercase">{selectedExamGuards?.module}</span>?
+                </p>
+                <p className="text-xs text-stone-500">
+                  This action cannot be undone. The professor's quota will be decremented.
+                </p>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRemoveGuard}
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-3 bg-red-500 text-white text-sm font-bold uppercase tracking-wider hover:bg-red-600 transition-all disabled:opacity-50"
+                >
+                  {isLoading ? 'Removing...' : 'Yes, Remove Guard'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsRemoveConfirmModalOpen(false);
+                    setGuardToRemove(null);
+                    setError(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-stone-400 text-white text-sm font-bold uppercase tracking-wider hover:bg-stone-500 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Replace Guard Modal */}
+      <Modal
+        isOpen={isReplaceGuardModalOpen}
+        onClose={() => {
+          setIsReplaceGuardModalOpen(false);
+          setGuardToReplace(null);
+          setSelectedProfessorIds([]);
+          setError(null);
+        }}
+        title={`Replace Guard: ${guardToReplace?.name || 'Select Guard'}`}
+        size="lg"
+      >
+        <div className="p-4 space-y-4">
+          {guardToReplace && selectedExamGuards && (
+            <>
+              {/* Current Guard Info */}
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-yellow-800 mb-1">
+                      Current Guard to Replace
+                    </p>
+                    <p className="text-sm font-bold text-app-fg uppercase tracking-wider">
+                      Prof {guardToReplace.name}
+                    </p>
+                    <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                      Dept: {guardToReplace.department || selectedExamGuards.moduleProfessorDept}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">
+                    Guard #{guardToReplace.index + 1}
+                  </span>
+                </div>
+              </div>
+
+              {/* Exam Info */}
+              <div className="p-4 bg-stone-50 border border-stone-200 rounded">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">
+                  Exam: {selectedExamGuards.module}
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">
+                  Date: {selectedExamGuards.date} | Time: {selectedExamGuards.time} | Room: {selectedExamGuards.room}
+                </p>
+              </div>
+
+              {/* Available Professors List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-app-fg">
+                    Select Replacement Professor ({availableProfessors.length} available)
+                  </h4>
+                </div>
+                
+                {availableProfessors.length === 0 ? (
+                  <p className="text-sm text-stone-500 text-center py-4">
+                    No available professors found. All professors may have reached their quota limit (4 guards max).
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto border border-stone-100 rounded">
+                    {availableProfessors.map((prof) => (
+                      <div
+                        key={prof.id}
+                        onClick={() => {
+                          // Single selection for replace
+                          if (selectedProfessorIds.includes(prof.id)) {
+                            setSelectedProfessorIds([]);
+                          } else {
+                            setSelectedProfessorIds([prof.id]);
+                          }
+                        }}
+                        className={`p-3 border-b border-stone-100 last:border-b-0 cursor-pointer transition-all ${
+                          selectedProfessorIds.includes(prof.id) 
+                            ? 'bg-app-primary text-white' 
+                            : 'bg-white hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold uppercase tracking-wider">
+                                {prof.name}
+                              </span>
+                              {prof.is_associated && (
+                                <span 
+                                  className="text-[8px] px-1.5 py-0.5 bg-yellow-400 text-yellow-900 font-black uppercase tracking-wider rounded"
+                                  title="Associated with this module"
+                                >
+                                  ASSOCIATED
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1">
+                              <span className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                {prof.department}
+                              </span>
+                              <span className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Quota: {prof.completed_guards}/{prof.max_guards}
+                              </span>
+                              <div className="flex-1 h-2 bg-stone-200 rounded-full overflow-hidden ml-2">
+                                <div 
+                                  className={`h-full transition-all ${((prof.completed_guards || 0) / (prof.max_guards || 4)) * 100 > 80 ? 'bg-red-500' : ((prof.completed_guards || 0) / (prof.max_guards || 4)) * 100 > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                  style={{ width: `${((prof.completed_guards || 0) / (prof.max_guards || 4)) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {selectedProfessorIds.includes(prof.id) && (
+                              <span className="text-green-400">✓ Selected</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selection Summary */}
+              {selectedProfessorIds.length > 0 && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-800">
+                        New Guard Selected
+                      </span>
+                      <div className="text-xs text-blue-700 mt-1">
+                        {selectedProfessorIds.map(id => {
+                          const prof = availableProfessors.find(p => p.id === id);
+                          return prof ? prof.name : '';
+                        }).filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-blue-700 mt-2">
+                    ⚡ Replacement: {guardToReplace.name} → {availableProfessors.find(p => p.id === selectedProfessorIds[0])?.name || 'New Professor'}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4 border-t border-stone-200">
+                <button
+                  onClick={handleReplaceGuard}
+                  disabled={selectedProfessorIds.length === 0 || isLoading}
+                  className="flex-1 px-4 py-3 bg-yellow-600 text-white text-sm font-bold uppercase tracking-wider hover:bg-yellow-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Replacing...' : 'Replace Guard'}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setIsReplaceGuardModalOpen(false);
+                    setGuardToReplace(null);
+                    setSelectedProfessorIds([]);
+                    setError(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-stone-400 text-white text-sm font-bold uppercase tracking-wider hover:bg-stone-500 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+          
+          {error && (
+            <div className="p-3 bg-red-100 border border-red-300 rounded">
+              <p className="text-xs font-bold text-red-800 uppercase tracking-wider">{error}</p>
+            </div>
+          )}
         </div>
       </Modal>
 
