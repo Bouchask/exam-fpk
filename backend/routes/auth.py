@@ -102,6 +102,7 @@ def register():
         department_id=data.get('department_id')
     )
     user.set_password(data.get('password'))
+    user.update_full_name()
     
     try:
         db.session.add(user)
@@ -245,11 +246,10 @@ def update_user(user_id):
             return error_response('Email already exists', 400)
         user.email = data.get('email')
     
-    if 'first_name' in data:
-        user.first_name = data.get('first_name')
-    
-    if 'last_name' in data:
-        user.last_name = data.get('last_name')
+    if 'first_name' in data or 'last_name' in data:
+        user.first_name = data.get('first_name', user.first_name)
+        user.last_name = data.get('last_name', user.last_name)
+        user.update_full_name()
     
     if 'institutional_grade' in data:
         user.institutional_grade = data.get('institutional_grade')

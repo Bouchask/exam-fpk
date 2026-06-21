@@ -82,6 +82,7 @@ def create_app(config_name='default'):
                     institutional_grade='ADMIN'
                 )
                 admin.set_password('admin')
+                admin.update_full_name()
                 db.session.add(admin)
                 db.session.commit()
                 print("Default admin user created: admin/admin")
@@ -107,6 +108,7 @@ def create_app(config_name='default'):
                     institutional_grade='PR'
                 )
                 prof_user.set_password('prof')
+                prof_user.update_full_name()
                 db.session.add(prof_user)
                 db.session.commit()
                 print("Default professor user created: prof/prof")

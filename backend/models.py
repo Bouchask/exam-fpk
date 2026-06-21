@@ -15,6 +15,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
+    full_name = db.Column(db.String(101), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     institutional_grade = db.Column(db.String(50))
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
@@ -31,9 +32,9 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}"
+    def update_full_name(self):
+        """Update full_name based on first_name and last_name"""
+        self.full_name = f"{self.first_name} {self.last_name}"
     
     def to_dict(self):
         return {
