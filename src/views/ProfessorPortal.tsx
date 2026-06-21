@@ -62,28 +62,78 @@ export const ProfessorPortal = () => {
       
       // Get professor by user_id
       const professorResponse = await professorService.getAll(1, 100);
-      const allProfessors = professorResponse.success ? (professorResponse.data?.data || professorResponse.data || []) : [];
+      const allProfessors: Professor[] = professorResponse.success && professorResponse.data 
+        ? (Array.isArray(professorResponse.data) ? professorResponse.data : (professorResponse.data as any).data || []) 
+        : [];
       const professor = allProfessors.find((p: any) => p.user_id === currentUser.id || p.id === currentUser.id) || null;
       
       // Get modules taught by this professor
       const modulesResponse = await moduleService.getByProfessor(currentUser.id);
-      const modules: Module[] = modulesResponse.success ? (modulesResponse.data?.data || modulesResponse.data || []) : [];
+      let modules: Module[] = modulesResponse.success && modulesResponse.data 
+        ? (Array.isArray(modulesResponse.data) ? modulesResponse.data : (modulesResponse.data as any).data || []) 
+        : [];
+      
+      // Also get all exams to find modules where professor is associated
+      const allExamsResponse = await examService.getAll();
+      const allExams: Exam[] = allExamsResponse.success && allExamsResponse.data 
+        ? (Array.isArray(allExamsResponse.data) ? allExamsResponse.data : (allExamsResponse.data as any).data || []) 
+        : [];
+      
+      // Get modules from exams where professor is associated
+      const examsWithProfessor = allExams.filter(e => 
+        e.associated_professors?.some((p: any) => p.id === currentUser.id) || 
+        (e.module_obj as any)?.professor_id === currentUser.id
+      );
+      
+      // Get unique modules from these exams
+      const examModules: Module[] = examsWithProfessor
+        .map(e => e.module_obj as Module)
+        .filter((m, index, self) => m && index === self.findIndex((other: any) => (other as any)?.id === (m as any)?.id))
+        .filter(Boolean) as Module[];
+      
+      // Combine modules from both sources
+      modules = [...modules, ...examModules];
       
       // Get exams for these modules
       let exams: Exam[] = [];
       for (const module of modules) {
-        const examResponse = await examService.getByModule(module.id);
-        if (examResponse.success) {
-          const examData = examResponse.data?.data || examResponse.data || [];
-          if (Array.isArray(examData)) {
+        if (module.id) {
+          const examResponse = await examService.getByModule(module.id);
+          if (examResponse.success && examResponse.data) {
+            const examData: Exam[] = Array.isArray(examResponse.data) 
+              ? examResponse.data 
+              : ((examResponse.data as any).data || []);
             exams = [...exams, ...examData];
           }
         }
       }
       
+      // Also include exams from the allExams that have this professor associated
+      exams = [...exams, ...examsWithProfessor.filter(e => !exams.some(ex => ex.id === e.id))];
+      
       // Get assignments where this professor is a guard
       const assignmentsResponse = await assignmentService.getByProfessor(currentUser.id);
-      const guardAssignments: Assignment[] = assignmentsResponse.success ? (assignmentsResponse.data?.data || assignmentsResponse.data || []) : [];
+      const guardAssignments: Assignment[] = assignmentsResponse.success && assignmentsResponse.data
+        ? (Array.isArray(assignmentsResponse.data) ? assignmentsResponse.data : (assignmentsResponse.data as any).data || []) 
+        : [];
+      
+      // Get full exam details for guard assignments
+      const guardExamIds = guardAssignments.map(a => a.exam_id);
+      const guardExamsResponse = await Promise.all(
+        guardExamIds.map(id => examService.getById(id))
+      );
+      const guardExams: Exam[] = guardExamsResponse
+        .filter(r => r.success && r.data)
+        .map(r => {
+          const d = r.data;
+          if (Array.isArray(d)) return d[0];
+          if ((d as any).data && Array.isArray((d as any).data)) return (d as any).data[0];
+          return d as Exam;
+        })
+        .filter(Boolean) as Exam[];
+      
+      // Merge guard exams with regular exams
+      exams = [...exams, ...guardExams.filter(e => !exams.some(ex => ex.id === e.id))];
       
       setDashboardData({
         professor,
@@ -210,6 +260,11 @@ export const ProfessorPortal = () => {
     return dashboardData.exams.filter(e => e.module_id === moduleId);
   };
 
+  // Get exam by ID
+  const getExamById = (examId: number): Exam | undefined => {
+    return dashboardData.exams.find(e => e.id === examId);
+  };
+
   // Calculate quota percentage
   const getQuotaPercentage = (): number => {
     if (dashboardData.professor) {
@@ -261,7 +316,7 @@ export const ProfessorPortal = () => {
             <span className="text-stone-300 text-[10px] font-black uppercase tracking-widest">S2-2026 SESSION</span>
           </div>
           <h1 className="text-5xl font-black tracking-tighter text-app-fg uppercase leading-none">
-            {user ? `${user.academic_title || 'DR.'} ${user.full_name || `${user.first_name} ${user.last_name}`}` : 'PROFESSOR'}
+            {user ? `${professor?.academic_title || user.institutional_grade || 'DR.'} ${user.full_name || `${user.first_name} ${user.last_name}`}` : 'PROFESSOR'}
           </h1>
           <p className="text-xs font-bold text-stone-500 mt-4 uppercase tracking-[0.3em]">
             {professor?.department || 'Computer Science Department'} • Institutional Grade: {user?.institutional_grade || 'PR'}
@@ -339,6 +394,9 @@ export const ProfessorPortal = () => {
                   const moduleExams = getExamsForModule(module.id);
                   const isExpanded = expandedModule === module.id;
                   
+                  // Only show modules that have a name or id
+                  if (!module.name && !module.id) return null;
+                  
                   return (
                     <div key={module.id} className="bg-white border-b border-stone-100 last:border-b-0">
                       <button
@@ -351,46 +409,52 @@ export const ProfessorPortal = () => {
                           </div>
                           <div className="flex-1">
                             <h4 className="font-black text-lg text-app-fg uppercase tracking-tight leading-tight">
-                              {module.name} {module.code && `(${module.code})`}
+                              {module.name || 'Unnamed Module'} {module.code && `(${module.code})`}
                             </h4>
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-2">
-                              {module.filier_name || 'FILIER'}
+                              {module.filier_name || 'Not specified'}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="text-xs font-black text-app-primary bg-app-primary bg-opacity-10 px-3 py-1 uppercase tracking-wider">
-                            {moduleExams.length} Exam{moduleExams.length > 1 ? 's' : ''}
+                            {moduleExams.length} Exam{moduleExams.length !== 1 ? 's' : ''}
                           </span>
                           <ChevronDown className={`w-5 h-5 text-stone-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         </div>
                       </button>
                       
-                      {isExpanded && moduleExams.length > 0 && (
+                      {isExpanded && (
                         <div className="bg-stone-50 p-6 border-t border-stone-100">
                           <h5 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Module Exams</h5>
-                          <div className="space-y-4">
-                            {moduleExams.map((exam) => (
-                              <div key={exam.id} className="flex items-center justify-between p-4 bg-white border border-stone-100">
-                                <div>
-                                  <p className="font-black text-sm text-app-fg uppercase tracking-tight">{exam.exam_type} EXAM</p>
-                                  <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mt-1">{exam.date}</p>
+                          {moduleExams.length > 0 ? (
+                            <div className="space-y-4">
+                              {moduleExams.map((exam) => (
+                                <div key={exam.id} className="flex items-center justify-between p-4 bg-white border border-stone-100">
+                                  <div>
+                                    <p className="font-black text-sm text-app-fg uppercase tracking-tight">
+                                      {exam.exam_type || 'NORMAL'} EXAM
+                                    </p>
+                                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mt-1">
+                                      {exam.date || 'TBD'}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[10px] font-black text-app-fg uppercase tracking-wider">
+                                      {exam.time || exam.start_time && exam.end_time ? `${exam.start_time} - ${exam.end_time}` : 'TBD'}
+                                    </p>
+                                    <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider mt-1">
+                                      {typeof exam.salle === 'string' ? exam.salle : exam.salle?.name || 'TBD'}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-[10px] font-black text-app-fg uppercase tracking-wider">{exam.time || `${exam.start_time} - ${exam.end_time}`}</p>
-                                  <p className="text-[9px] font-bold text-stone-400 uppercase tracking-wider mt-1">
-                                    {typeof exam.salle === 'string' ? exam.salle : exam.salle?.name}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {isExpanded && moduleExams.length === 0 && (
-                        <div className="bg-stone-50 p-6 border-t border-stone-100 text-center">
-                          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">No exams scheduled for this module</p>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">No exams scheduled for this module</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -399,6 +463,7 @@ export const ProfessorPortal = () => {
               ) : (
                 <div className="bg-white p-12 text-center border-b border-stone-100">
                   <p className="text-stone-400 font-bold">No modules assigned to you</p>
+                  <p className="text-[10px] text-stone-500 mt-2">Your teaching modules will appear here once assigned.</p>
                 </div>
               )}
             </div>
@@ -414,7 +479,8 @@ export const ProfessorPortal = () => {
             <div className="space-y-0 border border-stone-200 shadow-none mt-6">
               {dashboardData.guardAssignments.length > 0 ? (
                 dashboardData.guardAssignments.map((assignment) => {
-                  const exam = dashboardData.exams.find(e => e.id === assignment.exam_id);
+                  const exam = getExamById(assignment.exam_id);
+                  const module = dashboardData.modules.find(m => m.id === exam?.module_id);
                   
                   return (
                     <div key={assignment.id} className="group bg-white border-b border-stone-100 last:border-b-0 p-8 hover:bg-stone-50 transition-colors duration-150">
@@ -425,32 +491,39 @@ export const ProfessorPortal = () => {
                           </div>
                           <div>
                             <h4 className="font-black text-lg text-app-fg uppercase tracking-tight leading-tight">
-                              {assignment.exam_module || exam?.module || 'Unknown Module'}
+                              {assignment.exam_module || exam?.module || module?.name || 'Unknown Module'}
                             </h4>
+                            {module && (
+                              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">
+                                {module.code} • {module.filier_name}
+                              </p>
+                            )}
                             <div className="flex flex-wrap items-center gap-6 mt-3">
                               <div className="flex items-center gap-2 text-[10px] font-black text-stone-400 uppercase tracking-widest">
                                 <Clock className="w-3.5 h-3.5 text-app-primary" />
-                                {assignment.exam_time || `${exam?.start_time} - ${exam?.end_time}`}
+                                {assignment.exam_time || exam?.time || `${exam?.start_time} - ${exam?.end_time}`}
                               </div>
                               <div className="flex items-center gap-2 text-[10px] font-black text-stone-400 uppercase tracking-widest">
                                 <MapPin className="w-3.5 h-3.5 text-app-primary" />
-                                {assignment.exam_room || (typeof exam?.salle === 'string' ? exam?.salle : exam?.salle?.name)}
+                                {assignment.exam_room || (typeof exam?.salle === 'string' ? exam?.salle : exam?.salle?.name) || 'TBD'}
                               </div>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-10 md:border-l border-stone-200 md:pl-10">
                           <div className="text-left md:text-right">
-                            <p className="text-xs font-black text-app-fg uppercase tracking-widest">{assignment.exam_date || exam?.date}</p>
+                            <p className="text-xs font-black text-app-fg uppercase tracking-widest">{assignment.exam_date || exam?.date || 'TBD'}</p>
                             <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 mt-1 inline-block tracking-widest", 
                               assignment.status === 'CONFIRMED' ? "bg-stone-900 text-white" : "border border-stone-200 text-stone-400"
                             )}>
                               {assignment.status}
                             </span>
                           </div>
-                          <button onClick={() => exam && handleOpenIncident(exam)} className="px-6 py-3 border-2 border-app-fg text-app-fg font-black uppercase tracking-widest text-[10px] hover:bg-app-fg hover:text-white transition-all">
-                            LOGS
-                          </button>
+                          {exam && (
+                            <button onClick={() => handleOpenIncident(exam)} className="px-6 py-3 border-2 border-app-fg text-app-fg font-black uppercase tracking-widest text-[10px] hover:bg-app-fg hover:text-white transition-all">
+                              LOGS
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -459,6 +532,7 @@ export const ProfessorPortal = () => {
               ) : (
                 <div className="bg-white p-12 text-center">
                   <p className="text-stone-400 font-bold">No guard assignments found</p>
+                  <p className="text-[10px] text-stone-500 mt-2">You have not been assigned as a guard to any exams yet.</p>
                 </div>
               )}
             </div>
@@ -508,7 +582,7 @@ export const ProfessorPortal = () => {
               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Full Academic Name</label>
               <input 
                 type="text" 
-                defaultValue={user ? `${user.academic_title || 'DR.'} ${user.full_name || `${user.first_name} ${user.last_name}`}` : ''} 
+                defaultValue={user ? `${professor?.academic_title || user.institutional_grade || 'DR.'} ${user.full_name || `${user.first_name} ${user.last_name}`}` : ''} 
                 className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all" 
               />
             </div>
