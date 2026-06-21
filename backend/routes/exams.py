@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from sqlalchemy.orm import joinedload
 from models import db, Exam, Salle, Department, Assignment, Professor, Module, Filier
 from utils.helpers import success_response, error_response, admin_required, pagination_response, validate_date_format, validate_time_format
 from datetime import datetime, time
@@ -23,7 +24,13 @@ def get_exams():
     exam_type = request.args.get('exam_type')
     status = request.args.get('status')
     
-    query = Exam.query
+    query = Exam.query.options(
+        joinedload(Exam.module_obj).joinedload(Module.professor).joinedload(Professor.user),
+        joinedload(Exam.module_obj).joinedload(Module.filier).joinedload(Filier.professors).joinedload(Professor.user),
+        joinedload(Exam.salle),
+        joinedload(Exam.department),
+        joinedload(Exam.assignments).joinedload(Assignment.professor).joinedload(Professor.user)
+    )
     
     # Professors can only see exams they are assigned to
     if claims.get('role') == 'professor':

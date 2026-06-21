@@ -12,8 +12,6 @@ const adminMenuItems = [
 
 const professorMenuItems = [
   { id: "portal", label: "Duty Portal", href: "#portal" },
-  { id: "history", label: "Assignment History", href: "#history" },
-  { id: "incidents", label: "Incident Logs", href: "#incidents" },
 ];
 
 interface SidebarProps {

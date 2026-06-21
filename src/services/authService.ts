@@ -1,6 +1,6 @@
 // Authentication Service for FPK Exam Guard
 
-import api, { getErrorMessage, setBackendAvailable, useMockData as globalUseMockData, setUseMockData as setGlobalUseMockData, isUsingMockData as isGlobalUsingMockData } from './api';
+import api, { getErrorMessage, setBackendAvailable, useMockData as globalUseMockData, setUseMockData as setGlobalUseMockData, isUsingMockData as isGlobalUsingMockData, resetToRealData } from './api';
 import type {
   LoginRequest,
   LoginResponse,
@@ -12,7 +12,7 @@ import type {
 import { mockUsers, findMockUser, findMockUserByUsername, createSuccessResponse } from './mockData';
 
 // Local flag can override global flag
-export { setGlobalUseMockData as setUseMockData, isGlobalUsingMockData as isUsingMockData, globalUseMockData as useMockData };
+export { setGlobalUseMockData as setUseMockData, isGlobalUsingMockData as isUsingMockData, globalUseMockData as useMockData, resetToRealData };
 
 const AUTH_ENDPOINTS = {
   LOGIN: '/auth/login',

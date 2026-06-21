@@ -108,6 +108,21 @@ class Filier(db.Model):
             # return 0 and let the frontend handle it
             module_count = 0
         
+        # Get professors for this filier
+        professors_list = []
+        try:
+            if self.professors:
+                for p in self.professors:
+                    professors_list.append({
+                        'id': p.id,
+                        'name': p.user.full_name if p.user else None,
+                        'email': p.user.email if p.user else None,
+                        'department_id': p.department_id,
+                        'department': p.department.name if p.department else None
+                    })
+        except Exception:
+            pass
+        
         return {
             'id': self.id,
             'name': self.name,
@@ -118,6 +133,7 @@ class Filier(db.Model):
             'description': self.description,
             'is_active': self.is_active,
             'module_count': module_count,
+            'professors': professors_list,
             'created_at': self.created_at.isoformat()
         }
 
@@ -155,6 +171,20 @@ class Module(db.Model):
                 # Database schema mismatch - professor_id column exists but relationship may fail
                 professor_name = None
         
+        # Get full professor details
+        professor_details = None
+        if self.professor:
+            try:
+                professor_details = {
+                    'id': self.professor.id,
+                    'name': self.professor.user.full_name if self.professor.user else None,
+                    'email': self.professor.user.email if self.professor.user else None,
+                    'department_id': self.professor.department_id,
+                    'department': self.professor.department.name if self.professor.department else None
+                }
+            except Exception:
+                pass
+        
         return {
             'id': self.id,
             'name': self.name,
@@ -163,6 +193,7 @@ class Module(db.Model):
             'filier_name': self.filier.name if self.filier else None,
             'professor_id': professor_id,
             'professor_name': professor_name,
+            'professor': professor_details,
             'hours': self.hours,
             'description': self.description,
             'is_active': self.is_active,
@@ -302,29 +333,69 @@ class Exam(db.Model):
         return self.date.strftime('%Y-%m-%d')
     
     def to_dict(self):
+        # Use already-loaded relationships if available (from eager loading)
+        module_obj_dict = None
+        associated_professors = []
+        
+        # Get module object and extract professor information
+        if self.module_id:
+            # Use eager-loaded module_obj if available, otherwise query
+            module = self.module_obj if self.module_obj else Module.query.get(self.module_id)
+            if module:
+                module_obj_dict = module.to_dict()
+                
+                # Extract associated professors from module
+                # Method 1: Direct professor from module.professor (if available)
+                if module.professor and module.professor.user:
+                    associated_professors.append({
+                        'id': module.professor.id,
+                        'name': module.professor.user.full_name,
+                        'email': module.professor.user.email,
+                        'department_id': module.professor.department_id,
+                        'department': module.professor.department.name if module.professor.department else None
+                    })
+                # Method 2: If no direct professor, try to get from filier
+                elif module.filier_id:
+                    filier = module.filier if module.filier else Filier.query.get(module.filier_id)
+                    if filier and filier.professors:
+                        for prof in filier.professors:
+                            if prof and prof.user:
+                                associated_professors.append({
+                                    'id': prof.id,
+                                    'name': prof.user.full_name,
+                                    'email': prof.user.email,
+                                    'department_id': prof.department_id,
+                                    'department': prof.department.name if prof.department else None
+                                })
+        
+        # Get assignments (guards) count
+        guards_count = len(self.assignments) if self.assignments else 0
+        
         return {
             'id': self.id,
             'module_id': self.module_id,
             'module': self.module,
             'module_code': self.module_code,
-            'module_obj': Module.query.get(self.module_id).to_dict() if self.module_id else None,
+            'module_obj': module_obj_dict,
             'exam_type': self.exam_type,
             'filier_id': self.filier_id,
-            'filier': Filier.query.get(self.filier_id).name if self.filier_id else None,
+            'filier': self.filier.name if self.filier else (Filier.query.get(self.filier_id).name if self.filier_id else None),
             'date': self.full_date,
             'time': self.time_range,
             'start_time': self.start_time.strftime('%H:%M'),
             'end_time': self.end_time.strftime('%H:%M'),
             'duration_minutes': self.duration_minutes,
             'salle_id': self.salle_id,
-            'salle': Salle.query.get(self.salle_id).name if self.salle_id else None,
+            'salle': self.salle.name if self.salle else (Salle.query.get(self.salle_id).name if self.salle_id else None),
             'department_id': self.department_id,
-            'department': Department.query.get(self.department_id).name if self.department_id else None,
+            'department': self.department.name if self.department else (Department.query.get(self.department_id).name if self.department_id else None),
             'academic_year': self.academic_year,
             'semester': self.semester,
             'status': self.status,
             'notes': self.notes,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat(),
+            'associated_professors': associated_professors,
+            'guards_count': guards_count
         }
 
 
@@ -353,16 +424,35 @@ class Assignment(db.Model):
     def to_dict(self):
         prof = Professor.query.get(self.professor_id)
         exam = Exam.query.get(self.exam_id)
+        
+        # Get professor department name safely
+        prof_dept_name = None
+        if prof and prof.department:
+            try:
+                prof_dept_name = prof.department.name
+            except:
+                prof_dept_name = None
+        
+        # Get exam room name safely
+        exam_room_name = None
+        if exam and exam.salle:
+            try:
+                exam_room_name = exam.salle.name
+            except:
+                if exam.salle_id:
+                    salle = Salle.query.get(exam.salle_id)
+                    exam_room_name = salle.name if salle else None
+        
         return {
             'id': self.id,
             'professor_id': self.professor_id,
             'professor': prof.user.full_name if prof and prof.user else None,
-            'professor_department': prof.department.name if prof and prof.department else None,
+            'professor_department': prof_dept_name,
             'exam_id': self.exam_id,
             'exam_module': exam.module if exam else None,
             'exam_date': exam.date.strftime('%Y-%m-%d') if exam else None,
             'exam_time': exam.time_range if exam else None,
-            'exam_room': exam.salle.name if exam and exam.salle_id and Salle.query.get(exam.salle_id) else None,
+            'exam_room': exam_room_name,
             'status': self.status,
             'assignment_date': self.assignment_date.isoformat(),
             'notes': self.notes,

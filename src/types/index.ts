@@ -169,10 +169,19 @@ export interface Exam {
   notes?: string;
   created_at: string;
   assignments?: Assignment[];
+  associated_professors?: Array<{
+    id: number;
+    name: string;
+    email?: string;
+    department_id?: number;
+    department?: string;
+  }>;
+  guards_count?: number;
 }
 
 export interface CreateExamRequest {
   module: string;
+  module_id?: number;
   module_code?: string;
   exam_type: string;
   date: string;

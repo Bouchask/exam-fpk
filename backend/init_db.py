@@ -9,7 +9,7 @@ import sys
 
 # Import the create_app function from app.py
 from app import create_app
-from models import db, User, Professor, Department, Salle, Filier
+from models import db, User, Professor, Department, Salle, Filier, Module, Exam, ProfessorFilier
 
 def main():
     """Main initialization function"""
@@ -152,6 +152,184 @@ def main():
                 db.session.add(cs_filier)
                 db.session.commit()
                 print("Default Computer Science filier created")
+            
+            # Create modules for Computer Science filier
+            modules = [
+                {'name': 'Power BI', 'code': 'POWER-BI', 'hours': 45},
+                {'name': 'Data Science', 'code': 'DS-101', 'hours': 45},
+                {'name': 'Web Development', 'code': 'WEB-201', 'hours': 45},
+                {'name': 'Database Systems', 'code': 'DB-301', 'hours': 45},
+                {'name': 'Algorithms', 'code': 'ALG-401', 'hours': 45},
+            ]
+            
+            for module_data in modules:
+                if not Module.query.filter_by(code=module_data['code']).first():
+                    module = Module(
+                        name=module_data['name'],
+                        code=module_data['code'],
+                        filier_id=cs_filier.id,
+                        hours=module_data['hours'],
+                        is_active=True
+                    )
+                    db.session.add(module)
+            db.session.commit()
+            print("Default modules created for Computer Science filier")
+            
+            # Create Yahya professor for Power BI module
+            yahya_user = User.query.filter_by(username='yahya').first()
+            if not yahya_user:
+                yahya_user = User(
+                    username='yahya',
+                    email='yahya.benali@fpk.edu',
+                    first_name='Yahya',
+                    last_name='Benali',
+                    role='professor',
+                    institutional_grade='PR'
+                )
+                yahya_user.set_password('yahya')
+                db.session.add(yahya_user)
+                db.session.commit()
+                print("Yahya professor user created: yahya/yahya")
+            
+            # Create Yahya professor profile
+            yahya_prof = Professor.query.filter_by(user_id=yahya_user.id).first()
+            if not yahya_prof:
+                yahya_prof = Professor(
+                    user_id=yahya_user.id,
+                    department_id=cs_dept.id,
+                    academic_title='DR',
+                    max_guards=4,
+                    completed_guards=0
+                )
+                db.session.add(yahya_prof)
+                db.session.commit()
+                print("Yahya professor profile created")
+            
+            # Link Yahya to Power BI module (direct relationship)
+            power_bi = Module.query.filter_by(code='POWER-BI').first()
+            if power_bi and power_bi.professor_id is None:
+                power_bi.professor_id = yahya_prof.id
+                db.session.commit()
+                print("Yahya linked as professor for Power BI module")
+            
+            # Also link Yahya to Computer Science filier (many-to-many)
+            existing_link = ProfessorFilier.query.filter_by(
+                professor_id=yahya_prof.id,
+                filier_id=cs_filier.id
+            ).first()
+            if not existing_link:
+                prof_filier_link = ProfessorFilier(
+                    professor_id=yahya_prof.id,
+                    filier_id=cs_filier.id
+                )
+                db.session.add(prof_filier_link)
+                db.session.commit()
+                print("Yahya linked to Computer Science filier")
+            
+            # Create additional professors for other modules
+            fatima_user = User.query.filter_by(username='fatima').first()
+            if not fatima_user:
+                fatima_user = User(
+                    username='fatima',
+                    email='fatima.zahra@fpk.edu',
+                    first_name='Fatima',
+                    last_name='Zahra',
+                    role='professor',
+                    institutional_grade='PR'
+                )
+                fatima_user.set_password('fatima')
+                db.session.add(fatima_user)
+                db.session.commit()
+                print("Fatima professor user created: fatima/fatima")
+            
+            fatima_prof = Professor.query.filter_by(user_id=fatima_user.id).first()
+            if not fatima_prof:
+                fatima_prof = Professor(
+                    user_id=fatima_user.id,
+                    department_id=cs_dept.id,
+                    academic_title='DR',
+                    max_guards=4,
+                    completed_guards=0
+                )
+                db.session.add(fatima_prof)
+                db.session.commit()
+                print("Fatima professor profile created")
+            
+            # Link Fatima to Data Science module
+            data_science = Module.query.filter_by(code='DS-101').first()
+            if data_science and data_science.professor_id is None:
+                data_science.professor_id = fatima_prof.id
+                db.session.commit()
+                print("Fatima linked as professor for Data Science module")
+            
+            # Link Fatima to Computer Science filier
+            existing_link = ProfessorFilier.query.filter_by(
+                professor_id=fatima_prof.id,
+                filier_id=cs_filier.id
+            ).first()
+            if not existing_link:
+                prof_filier_link = ProfessorFilier(
+                    professor_id=fatima_prof.id,
+                    filier_id=cs_filier.id
+                )
+                db.session.add(prof_filier_link)
+                db.session.commit()
+            
+            # Create exams for the modules
+            from datetime import date, time
+            exams_data = [
+                {
+                    'module_code': 'POWER-BI',
+                    'exam_type': 'NORMAL',
+                    'date': date(2026, 7, 9),
+                    'start_time': time(9, 0),
+                    'end_time': time(11, 0),
+                    'salle_code': 'A',
+                },
+                {
+                    'module_code': 'DS-101',
+                    'exam_type': 'NORMAL',
+                    'date': date(2026, 7, 10),
+                    'start_time': time(14, 0),
+                    'end_time': time(16, 0),
+                    'salle_code': 'B',
+                },
+            ]
+            
+            for exam_data in exams_data:
+                module = Module.query.filter_by(code=exam_data['module_code']).first()
+                salle = Salle.query.filter_by(code=exam_data['salle_code']).first()
+                
+                if module and salle:
+                    existing_exam = Exam.query.filter_by(
+                        module_id=module.id,
+                        exam_type=exam_data['exam_type']
+                    ).first()
+                    
+                    if not existing_exam:
+                        exam = Exam(
+                            module_id=module.id,
+                            module=module.name,
+                            module_code=module.code,
+                            exam_type=exam_data['exam_type'],
+                            filier_id=cs_filier.id,
+                            date=exam_data['date'],
+                            start_time=exam_data['start_time'],
+                            end_time=exam_data['end_time'],
+                            duration_minutes=120,
+                            salle_id=salle.id,
+                            department_id=cs_dept.id,
+                            academic_year='2025-2026',
+                            semester='S2',
+                            status='SCHEDULED'
+                        )
+                        db.session.add(exam)
+            db.session.commit()
+            print("Default exams created")
+            
+            # Update department staff count
+            cs_dept.staff_count = Professor.query.filter_by(department_id=cs_dept.id).count()
+            db.session.commit()
 
     print("\n" + "=" * 60)
     print("Database initialization completed successfully!")

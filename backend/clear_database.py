@@ -28,23 +28,34 @@ def clear_all_data():
         print("Clearing all database tables...")
         print()
         
+        # First, set department.head_id to NULL for all departments to break circular dependency
+        # Department.head_id references User.id, and User.department_id references Department.id
+        from models import Department, User
+        
+        # Break circular dependency: set all department heads to NULL first
+        departments = Department.query.all()
+        for dept in departments:
+            dept.head_id = None
+        db.session.commit()
+        print(f"  ✓ Reset department heads to NULL to break circular dependency")
+        
         # Define the order for deletion to respect foreign key constraints
-        # Tables are deleted in reverse order of their dependencies
+        # Most dependent tables first, then their parents
         table_order = [
             'AssignmentHistory',
             'Incident',
             'Assignment',
-            'ProfessorFilier',
             'Exam',
             'Module',
+            'ProfessorFilier',
             'Professor',
             'Filier',
             'Salle',
-            'Department',
-            'User'
+            'User',  # Must be deleted before Department (users.department_id -> departments.id)
+            'Department'
         ]
         
-        # Get all table models from db
+        # Get all table models
         from models import (
             AssignmentHistory, Incident, Assignment, ProfessorFilier,
             Exam, Module, Professor, Filier, Salle, Department, User
@@ -69,8 +80,11 @@ def clear_all_data():
             if table_name in tables:
                 model = tables[table_name]
                 count = model.query.count()
-                model.query.delete()
-                print(f"  ✓ Cleared {count} rows from {table_name}")
+                if count > 0:
+                    model.query.delete()
+                    print(f"  ✓ Cleared {count} rows from {table_name}")
+                else:
+                    print(f"  ✓ {table_name} already empty")
         
         db.session.commit()
         print()

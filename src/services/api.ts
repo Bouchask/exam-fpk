@@ -128,12 +128,12 @@ function isBackendAvailable(): boolean {
 }
 
 // Function to reset backend availability flag
-function resetBackendAvailability(): void {
+export function resetBackendAvailability(): void {
   backendAvailable = true;
 }
 
 // Function to set backend availability
-function setBackendAvailable(available: boolean): void {
+export function setBackendAvailable(available: boolean): void {
   backendAvailable = available;
 }
 
@@ -147,5 +147,11 @@ export function isUsingMockData(): boolean {
   return useMockData;
 }
 
-export { api, API_BASE_URL, getErrorMessage, isBackendAvailable, resetBackendAvailability, setBackendAvailable };
+// Function to reset to using real backend data
+export function resetToRealData(): void {
+  backendAvailable = true;
+  useMockData = false;
+}
+
+export { api, API_BASE_URL, getErrorMessage, isBackendAvailable };
 export default api;

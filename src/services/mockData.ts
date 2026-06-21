@@ -389,6 +389,7 @@ export const mockSalles: Salle[] = [
 export const mockExams: Exam[] = [
   {
     id: 1,
+    module_id: 101,
     module: 'LINEAR ALGEBRA',
     module_code: 'MATH101',
     exam_type: 'FINAL',
@@ -404,9 +405,12 @@ export const mockExams: Exam[] = [
     semester: 'S2',
     status: 'SCHEDULED',
     created_at: new Date().toISOString(),
+    associated_professors: [{ id: 5, name: 'Dr Albert Einstein', department: 'Mathematics' }],
+    guards_count: 0,
   },
   {
     id: 2,
+    module_id: 201,
     module: 'DATA STRUCTURES',
     module_code: 'CS201',
     exam_type: 'MIDTERM',
@@ -422,9 +426,15 @@ export const mockExams: Exam[] = [
     semester: 'S2',
     status: 'SCHEDULED',
     created_at: new Date().toISOString(),
+    associated_professors: [
+      { id: 2, name: 'Sarah Connor', department: 'Computer Science' },
+      { id: 6, name: 'Dr Alan Turing', department: 'Computer Science' }
+    ],
+    guards_count: 1,
   },
   {
     id: 3,
+    module_id: 301,
     module: 'QUANTUM PHYSICS',
     module_code: 'PHYS401',
     exam_type: 'FINAL',
@@ -440,6 +450,29 @@ export const mockExams: Exam[] = [
     semester: 'S2',
     status: 'SCHEDULED',
     created_at: new Date().toISOString(),
+    associated_professors: [{ id: 7, name: 'Dr Stephen Hawking', department: 'Physics' }],
+    guards_count: 0,
+  },
+  {
+    id: 4,
+    module_id: 401,
+    module: 'Power BI',
+    module_code: 'POWER-BI',
+    exam_type: 'NORMAL',
+    date: '2026-07-09',
+    start_time: '09:00',
+    end_time: '11:00',
+    duration_minutes: 120,
+    salle_id: 1,
+    salle: 'Amphi A',
+    department_id: 2,
+    department: 'Computer Science',
+    academic_year: '2025-2026',
+    semester: 'S2',
+    status: 'SCHEDULED',
+    created_at: new Date().toISOString(),
+    associated_professors: [{ id: 1, name: 'Yahya Benali', department: 'Computer Science', email: 'yahya.benali@fpk.edu' }],
+    guards_count: 0,
   },
 ];
 
