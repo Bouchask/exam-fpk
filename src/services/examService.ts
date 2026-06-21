@@ -21,6 +21,7 @@ const EXAM_ENDPOINTS = {
   ASSIGNMENTS: (id: number) => `/exams/${id}/assignments`,
   UNASSIGN: (examId: number, professorId: number) => `/exams/${examId}/unassign/${professorId}`,
   UPCOMING: '/exams/upcoming',
+  BY_MODULE: (moduleId: number) => `/exams/module/${moduleId}`,
 };
 
 export const examService = {
@@ -176,6 +177,26 @@ export const examService = {
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error as Error));
+    }
+  },
+
+  /**
+   * Get exams by module
+   */
+  async getByModule(moduleId: number): Promise<ApiResponse<Exam[]>> {
+    if (useMockData) {
+      const exams = mockExams.filter(e => e.module_id === moduleId);
+      return createSuccessResponse(exams);
+    }
+    try {
+      const response = await api.get<ApiResponse<Exam[]>>(EXAM_ENDPOINTS.BY_MODULE(moduleId));
+      return response.data;
+    } catch (error) {
+      console.warn('Backend endpoint not available for exams by module, using filter on all exams');
+      // Fallback: get all exams and filter by module_id
+      const allExams = await examService.getAll();
+      const filteredExams = allExams.data?.filter(e => e.module_id === moduleId) || [];
+      return createSuccessResponse(filteredExams);
     }
   },
 };

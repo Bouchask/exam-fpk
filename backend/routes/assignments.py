@@ -39,7 +39,8 @@ def get_assignments():
     if exam_id:
         query = query.filter_by(exam_id=exam_id)
     
-    assignments = query.order_by(Exam.date.asc(), Exam.start_time.asc()).paginate(
+    # Join with Exam to order by date and time
+    assignments = query.join(Exam).order_by(Exam.date.asc(), Exam.start_time.asc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
     

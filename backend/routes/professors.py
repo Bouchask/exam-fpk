@@ -279,7 +279,7 @@ def get_my_assignments():
     if status:
         query = query.filter_by(status=status)
     
-    assignments = query.order_by(Exam.date.asc()).paginate(page=page, per_page=per_page, error_out=False)
+    assignments = query.join(Exam).order_by(Exam.date.asc()).paginate(page=page, per_page=per_page, error_out=False)
     
     assignments_list = [a.to_dict() for a in assignments.items]
     

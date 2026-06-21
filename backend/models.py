@@ -100,6 +100,14 @@ class Filier(db.Model):
     exams = db.relationship('Exam', back_populates='filier', cascade='all, delete-orphan')
     
     def to_dict(self):
+        # Safely get module count - handle databases without professor_id column
+        try:
+            module_count = len(self.modules) if self.modules else 0
+        except Exception:
+            # If accessing modules fails (due to missing professor_id column),
+            # return 0 and let the frontend handle it
+            module_count = 0
+        
         return {
             'id': self.id,
             'name': self.name,
@@ -109,7 +117,7 @@ class Filier(db.Model):
             'max_modules': self.max_modules,
             'description': self.description,
             'is_active': self.is_active,
-            'module_count': len(self.modules) if self.modules else 0,
+            'module_count': module_count,
             'created_at': self.created_at.isoformat()
         }
 
@@ -134,14 +142,27 @@ class Module(db.Model):
     exams = db.relationship('Exam', back_populates='module_obj', cascade='all, delete-orphan')
     
     def to_dict(self):
+        # Handle databases that may not have professor_id column yet
+        professor_id = getattr(self, 'professor_id', None)
+        professor_name = None
+        
+        # Only try to access professor if professor_id exists and is not None
+        if professor_id is not None:
+            try:
+                if self.professor and self.professor.user:
+                    professor_name = self.professor.user.full_name
+            except Exception:
+                # Database schema mismatch - professor_id column exists but relationship may fail
+                professor_name = None
+        
         return {
             'id': self.id,
             'name': self.name,
             'code': self.code,
             'filier_id': self.filier_id,
             'filier_name': self.filier.name if self.filier else None,
-            'professor_id': self.professor_id,
-            'professor_name': self.professor.user.full_name if self.professor and self.professor.user else None,
+            'professor_id': professor_id,
+            'professor_name': professor_name,
             'hours': self.hours,
             'description': self.description,
             'is_active': self.is_active,
@@ -336,7 +357,7 @@ class Assignment(db.Model):
             'id': self.id,
             'professor_id': self.professor_id,
             'professor': prof.user.full_name if prof and prof.user else None,
-            'professor_department': prof.department if prof else None,
+            'professor_department': prof.department.name if prof and prof.department else None,
             'exam_id': self.exam_id,
             'exam_module': exam.module if exam else None,
             'exam_date': exam.date.strftime('%Y-%m-%d') if exam else None,

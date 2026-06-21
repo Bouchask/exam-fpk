@@ -4,7 +4,7 @@ import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { professorService, examService, departmentService, salleService, authService, dashboardService, useMockData } from "../services";
+import { professorService, examService, departmentService, salleService, moduleService, filierService, authService, dashboardService, useMockData } from "../services";
 import type { Professor, Exam, Department, Salle, DashboardOverview } from "../types";
 
 interface AdminDashboardProps {
@@ -29,11 +29,19 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     department: 'Computer Science',
   });
   const [examForm, setExamForm] = useState({
+    module_id: '',
     module: '',
     date: '',
-    time: '',
+    start_time: '',
+    end_time: '',
+    salle_id: '',
     salle: 'Amphi A',
+    exam_type: 'NORMAL',
+    department_id: '',
+    department_name: '',
+    notes: '',
   });
+  const [availableExamTypes, setAvailableExamTypes] = useState<string[]>(['NORMAL', 'RATTRAPAGE']);
   const [resourceForm, setResourceForm] = useState({
     name: '',
     code: '',
@@ -48,11 +56,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [exams, setExams] = useState<{ id: number; module: string; date: string; time: string; type: string; room: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: number; name: string; head: string; staff: number }[]>([]);
   const [salles, setSalles] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string; is_active: boolean }[]>([]);
+  const [modules, setModules] = useState<{ id: number; name: string; code?: string; filier_id?: number; department_id?: number; professor_id?: number }[]>([]);
+  const [filieres, setFilieres] = useState<{ id: number; name: string; department_id?: number }[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [editingSalle, setEditingSalle] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string } | null>(null);
+  const [editingDepartment, setEditingDepartment] = useState<{ id: number; name: string; code?: string; head_id?: number; staff_count?: number } | null>(null);
+  const [editingExam, setEditingExam] = useState<{ id: number; module_id: string; module: string; date: string; start_time: string; end_time: string; salle_id: string; salle: string; exam_type: string; department_id: string; department_name: string; notes: string } | null>(null);
   const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; username?: string; email?: string; first_name?: string; last_name?: string; institutional_grade?: string; department?: string; user?: any } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmType, setDeleteConfirmType] = useState<'salle' | 'professor' | 'department' | 'exam' | null>(null);
   
   // Load professor form data when selectedProfessor changes
   useEffect(() => {
@@ -186,6 +199,47 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     }
   }, []);
 
+  const fetchFilieresAndModules = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch filieres first
+      const filieresResponse = await filierService.getAll(1, 50);
+      const filieresData = filieresResponse.success && filieresResponse.data 
+        ? filieresResponse.data.map(f => ({
+            id: f.id,
+            name: f.name,
+            department_id: f.department_id,
+            department_name: f.department_name,
+          }))
+        : [];
+      setFilieres(filieresData);
+      
+      // Fetch modules
+      const modulesResponse = await moduleService.getAll(1, 50);
+      if (modulesResponse.success && modulesResponse.data) {
+        const modulesData = modulesResponse.data.map(m => {
+          const filier = filieresData.find(f => f.id === m.filier_id);
+          return {
+            id: m.id,
+            name: m.name,
+            code: m.code || '',
+            filier_id: m.filier_id,
+            filier_name: m.filier_name,
+            professor_id: m.professor_id,
+            department_id: filier?.department_id,
+            department_name: filier?.department_name,
+          };
+        });
+        setModules(modulesData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch filieres and modules:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Fetch dashboard overview data
   const fetchDashboardOverview = useCallback(async () => {
     try {
@@ -270,11 +324,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   // Fetch data on tab change (must be after all fetch functions are defined)
   useEffect(() => {
     if (activeTab === "professors") fetchProfessors();
-    if (activeTab === "exams") fetchExams();
+    if (activeTab === "exams") {
+      fetchExams();
+      fetchFilieresAndModules();
+      fetchSalles();
+      fetchDepartments();
+    }
     if (activeTab === "departments") fetchDepartments();
     if (activeTab === "salles") fetchSalles();
     if (activeTab === "overview") fetchDashboardOverview();
-  }, [activeTab, fetchDashboardOverview, fetchProfessors, fetchExams, fetchDepartments, fetchSalles]);
+  }, [activeTab, fetchDashboardOverview, fetchProfessors, fetchExams, fetchDepartments, fetchSalles, fetchFilieresAndModules]);
 
   // Initial fetch for overview when component mounts
   useEffect(() => {
@@ -304,7 +363,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       return;
     }
     
-    if (!selectedProfessor && !professorForm.password.trim())
     if (!selectedProfessor && !professorForm.password.trim()) {
       setError('Please enter a password');
       return;
@@ -481,15 +539,117 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     }
   };
 
+  const checkRoomAvailability = async (salleId: number, date: string, startTime: string, endTime: string, excludeExamId?: number): Promise<boolean> => {
+    try {
+      const examsInRoom = await examService.getBySalle(salleId);
+      if (!examsInRoom.success || !examsInRoom.data) return true;
+      
+      for (const exam of examsInRoom.data) {
+        if (excludeExamId && exam.id === excludeExamId) continue;
+        
+        if (exam.date !== date) continue;
+        
+        if (exam.start_time && exam.end_time) {
+          const existingStart = exam.start_time;
+          const existingEnd = exam.end_time;
+          
+          if (startTime < existingEnd && endTime > existingStart) {
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error('Error checking room availability:', err);
+      return true;
+    }
+  };
+
   const handleExamSubmit = async () => {
-    if (!examForm.module.trim()) {
-      setError('Please enter a module name');
+    if (!examForm.module_id) {
+      setError('Please select a module');
+      return;
+    }
+    
+    if (!examForm.date) {
+      setError('Please select a date');
+      return;
+    }
+    
+    if (!examForm.start_time) {
+      setError('Please select a start time');
+      return;
+    }
+    
+    if (!examForm.end_time) {
+      setError('Please select an end time');
+      return;
+    }
+    
+    if (examForm.start_time >= examForm.end_time) {
+      setError('End time must be after start time');
+      return;
+    }
+    
+    if (!examForm.salle_id) {
+      setError('Please select a room');
+      return;
+    }
+    
+    if (!examForm.department_id) {
+      setError('Department is automatically set based on the selected module. Please select a module first.');
+      return;
+    }
+    
+    // Check if there are available exam types for this module
+    if (availableExamTypes.length === 0) {
+      setError('No available exam types for this module. Both NORMAL and RATTRAPAGE exams already exist. Delete one to create a new exam.');
       return;
     }
 
     try {
       setIsLoading(true);
       setError(null);
+
+      // Check if an exam with the same module and type already exists
+      if (useMockData) {
+        // For mock data, check existing exams
+        const existingExam = exams.find(e => 
+          e.module === examForm.module && 
+          e.type === examForm.exam_type
+        );
+        if (existingExam) {
+          setError(`An exam for ${examForm.module} with type ${examForm.exam_type} already exists. Only one ${examForm.exam_type} exam per module is allowed.`);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // For real API, fetch exams by module to check
+        const moduleExamsResponse = await examService.getByModule(parseInt(examForm.module_id));
+        if (moduleExamsResponse.success && moduleExamsResponse.data) {
+          const existingExam = moduleExamsResponse.data.find((e: any) => 
+            e.module_id === parseInt(examForm.module_id) && 
+            e.exam_type === examForm.exam_type
+          );
+          if (existingExam) {
+            setError(`An exam for ${examForm.module} with type ${examForm.exam_type} already exists. Only one ${examForm.exam_type} exam per module is allowed.`);
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
+      const salleId = parseInt(examForm.salle_id);
+      const date = examForm.date;
+      const startTime = examForm.start_time;
+      const endTime = examForm.end_time;
+      
+      const isAvailable = await checkRoomAvailability(salleId, date, startTime, endTime);
+      if (!isAvailable) {
+        setError('This room is not available at the selected time. Please choose a different room or time.');
+        setIsLoading(false);
+        return;
+      }
 
       if (useMockData) {
         setExams(prev => [
@@ -498,34 +658,59 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             id: prev.length + 1,
             module: examForm.module,
             date: examForm.date,
-            time: examForm.time,
-            type: 'FINAL',
+            time: `${examForm.start_time} - ${examForm.end_time}`,
+            type: examForm.exam_type,
             room: examForm.salle,
           }
         ]);
         setSuccess('Exam scheduled successfully!');
-        setExamForm({ module: '', date: '', time: '', salle: 'Amphi A' });
+        setExamForm({
+          module_id: '',
+          module: '',
+          date: '',
+          start_time: '',
+          end_time: '',
+          salle_id: '',
+          salle: '',
+          exam_type: 'NORMAL',
+          department_id: '',
+          department_name: '',
+          notes: '',
+        });
         setIsModalOpen(false);
         return;
       }
 
       // Real API call
-      const salleId = examForm.salle === 'Amphi A' ? 1 : examForm.salle === 'Amphi B' ? 2 : examForm.salle === 'SALLE B12' ? 3 : 4;
       await examService.create({
         module: examForm.module,
-        module_code: examForm.module.split(' ')[0],
-        exam_type: 'FINAL',
+        module_code: modules.find(m => m.id === parseInt(examForm.module_id))?.code || '',
+        exam_type: examForm.exam_type,
         date: examForm.date,
-        start_time: examForm.time.split('-')[0]?.trim() || '09:00',
-        end_time: examForm.time.split('-')[1]?.trim() || '11:00',
+        start_time: examForm.start_time,
+        end_time: examForm.end_time,
         salle_id: salleId,
-        department_id: 2, // Default to Computer Science
+        department_id: parseInt(examForm.department_id),
         academic_year: '2025-2026',
         semester: 'S2',
-      } as any);
+        status: 'SCHEDULED',
+        notes: examForm.notes || '',
+      });
       
       setSuccess('Exam scheduled successfully!');
-      setExamForm({ module: '', date: '', time: '', salle: 'Amphi A' });
+      setExamForm({
+        module_id: '',
+        module: '',
+        date: '',
+        start_time: '',
+        end_time: '',
+        salle_id: '',
+        salle: '',
+        exam_type: 'NORMAL',
+        department_id: '',
+        department_name: '',
+        notes: '',
+      });
       setIsModalOpen(false);
       fetchExams();
     } catch (err) {
@@ -580,20 +765,34 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             setSuccess('Salle added successfully!');
           }
         } else if (activeTab === "departments") {
-          setDepartments(prev => [
-            ...prev,
-            {
-              id: prev.length + 1,
-              name: resourceForm.name,
-              head: 'Admin',
-              staff: 0,
-            }
-          ]);
-          setSuccess('Department added successfully!');
+          if (editingDepartment) {
+            setDepartments(prev => prev.map(d => 
+              d.id === editingDepartment.id 
+                ? {
+                    ...d,
+                    name: resourceForm.name,
+                    code: resourceForm.code || resourceForm.name.substring(0, 4).toUpperCase(),
+                  }
+                : d
+            ));
+            setSuccess('Department updated successfully!');
+          } else {
+            setDepartments(prev => [
+              ...prev,
+              {
+                id: prev.length + 1,
+                name: resourceForm.name,
+                head: 'Admin',
+                staff: 0,
+              }
+            ]);
+            setSuccess('Department added successfully!');
+          }
         }
         
         setResourceForm({ name: '', code: '', capacity: '', type: 'SALLE', floor: '1', building: 'Main' });
         setEditingSalle(null);
+        setEditingDepartment(null);
         setIsModalOpen(false);
         return;
       }
@@ -624,16 +823,26 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         }
         fetchSalles();
       } else if (activeTab === "departments") {
-        await departmentService.create({
-          name: resourceForm.name,
-          staff_count: 0,
-        });
+        if (editingDepartment) {
+          await departmentService.update(editingDepartment.id, {
+            name: resourceForm.name,
+            code: resourceForm.code || resourceForm.name.substring(0, 4).toUpperCase(),
+          });
+          setSuccess('Department updated successfully!');
+        } else {
+          await departmentService.create({
+            name: resourceForm.name,
+            code: resourceForm.code || resourceForm.name.substring(0, 4).toUpperCase(),
+            staff_count: 0,
+          });
+          setSuccess('Department added successfully!');
+        }
         fetchDepartments();
-        setSuccess('Department added successfully!');
       }
       
       setResourceForm({ name: '', code: '', capacity: '', type: 'SALLE', floor: '1', building: 'Main' });
       setEditingSalle(null);
+      setEditingDepartment(null);
       setIsModalOpen(false);
     } catch (err) {
       setError('Failed to save resource. Please try again.');
@@ -675,6 +884,38 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     }
   };
 
+  const handleEditDepartment = (department: typeof departments[0]) => {
+    setEditingDepartment(department);
+    setResourceForm({
+      name: department.name,
+      code: department.code || '',
+      capacity: '',
+      type: 'SALLE',
+      floor: '1',
+      building: 'Main',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteDepartment = async (departmentId: number) => {
+    try {
+      setIsLoading(true);
+      if (useMockData) {
+        setDepartments(prev => prev.filter(d => d.id !== departmentId));
+      } else {
+        await departmentService.delete(departmentId);
+        fetchDepartments();
+      }
+      setSuccess('Department deleted successfully!');
+      setDeleteConfirmId(null);
+    } catch (err) {
+      setError('Failed to delete department. Please try again.');
+      console.error('Error deleting department:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditProfessor = (professor: typeof professors[0]) => {
     // Set selected professor to trigger useEffect
     setSelectedProfessor(professor);
@@ -700,13 +941,225 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     }
   };
 
+  // Exam handlers
+  const handleEditExam = (exam: typeof exams[0]) => {
+    const selectedModule = modules.find(m => m.name === exam.module);
+    let deptId = '';
+    let deptName = '';
+    
+    if (selectedModule) {
+      deptId = selectedModule.department_id?.toString() || '';
+      if (!deptId && selectedModule.filier_id) {
+        const filier = filieres.find(f => f.id === selectedModule.filier_id);
+        deptId = filier?.department_id?.toString() || '';
+      }
+      if (deptId) {
+        deptName = departments.find(d => d.id.toString() === deptId)?.name || 'Unknown';
+      } else {
+        deptName = 'Unknown';
+      }
+    }
+    
+    // Set the exam data for editing
+    const examToEdit = {
+      id: exam.id,
+      module_id: selectedModule?.id?.toString() || '',
+      module: exam.module,
+      date: exam.date,
+      start_time: exam.time?.split(' - ')[0] || '',
+      end_time: exam.time?.split(' - ')[1] || '',
+      salle_id: salles.find(s => s.name === exam.room)?.id?.toString() || '',
+      salle: exam.room,
+      exam_type: exam.type,
+      department_id: deptId,
+      department_name: deptName,
+      notes: '',
+    };
+    setEditingExam(examToEdit);
+    setExamForm(examToEdit);
+    
+    // Fetch available exam types for this module (excluding current exam)
+    if (useMockData) {
+      const existingExams = exams.filter(e => e.module === exam.module && e.id !== exam.id);
+      const existingTypes = existingExams.map(e => e.type);
+      const availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+      setAvailableExamTypes(availableTypes);
+    } else {
+      // For real API, we'll fetch in the module selection
+      setAvailableExamTypes(['NORMAL', 'RATTRAPAGE']);
+    }
+    
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteExam = async (examId: number) => {
+    try {
+      setIsLoading(true);
+      if (useMockData) {
+        setExams(prev => prev.filter(e => e.id !== examId));
+      } else {
+        await examService.delete(examId);
+        fetchExams();
+        fetchFilieresAndModules(); // Refresh to update available types
+      }
+      setSuccess('Exam deleted successfully!');
+      setDeleteConfirmId(null);
+      setDeleteConfirmType(null);
+    } catch (err) {
+      setError('Failed to delete exam. Please try again.');
+      console.error('Error deleting exam:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateExam = async () => {
+    if (!editingExam) return;
+    
+    // Use the same validation as create
+    if (!examForm.module_id) {
+      setError('Please select a module');
+      return;
+    }
+    
+    if (!examForm.date) {
+      setError('Please select a date');
+      return;
+    }
+    
+    if (!examForm.start_time) {
+      setError('Please select a start time');
+      return;
+    }
+    
+    if (!examForm.end_time) {
+      setError('Please select an end time');
+      return;
+    }
+    
+    if (examForm.start_time >= examForm.end_time) {
+      setError('End time must be after start time');
+      return;
+    }
+    
+    if (!examForm.salle_id) {
+      setError('Please select a room');
+      return;
+    }
+    
+    if (!examForm.department_id) {
+      setError('Department is automatically set based on the selected module. Please select a module first.');
+      return;
+    }
+    
+    if (availableExamTypes.length === 0) {
+      setError('No available exam types for this module.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const salleId = parseInt(examForm.salle_id);
+      const date = examForm.date;
+      const startTime = examForm.start_time;
+      const endTime = examForm.end_time;
+      
+      // Check room availability (exclude current exam from check)
+      const isAvailable = await checkRoomAvailability(salleId, date, startTime, endTime, editingExam.id);
+      if (!isAvailable) {
+        setError('This room is not available at the selected time. Please choose a different room or time.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (useMockData) {
+        setExams(prev => prev.map(e => 
+          e.id === editingExam.id 
+            ? {
+                ...e,
+                module: examForm.module,
+                date: examForm.date,
+                time: `${examForm.start_time} - ${examForm.end_time}`,
+                type: examForm.exam_type,
+                room: examForm.salle,
+              }
+            : e
+        ));
+        setSuccess('Exam updated successfully!');
+        setExamForm({
+          module_id: '',
+          module: '',
+          date: '',
+          start_time: '',
+          end_time: '',
+          salle_id: '',
+          salle: '',
+          exam_type: 'NORMAL',
+          department_id: '',
+          department_name: '',
+          notes: '',
+        });
+        setEditingExam(null);
+        setAvailableExamTypes(['NORMAL', 'RATTRAPAGE']);
+        setIsModalOpen(false);
+        return;
+      }
+
+      // Real API call - update exam
+      await examService.update(editingExam.id, {
+        module: examForm.module,
+        module_code: modules.find(m => m.id === parseInt(examForm.module_id))?.code || '',
+        exam_type: examForm.exam_type,
+        date: examForm.date,
+        start_time: examForm.start_time,
+        end_time: examForm.end_time,
+        salle_id: salleId,
+        department_id: parseInt(examForm.department_id),
+        academic_year: '2025-2026',
+        semester: 'S2',
+        status: 'SCHEDULED',
+        notes: examForm.notes || '',
+      });
+      
+      setSuccess('Exam updated successfully!');
+      setExamForm({
+        module_id: '',
+        module: '',
+        date: '',
+        start_time: '',
+        end_time: '',
+        salle_id: '',
+        salle: '',
+        exam_type: 'NORMAL',
+        department_id: '',
+        department_name: '',
+        notes: '',
+      });
+      setEditingExam(null);
+      setAvailableExamTypes(['NORMAL', 'RATTRAPAGE']);
+      setIsModalOpen(false);
+      fetchExams();
+    } catch (err) {
+      setError('Failed to update exam. Please try again.');
+      console.error('Error updating exam:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = () => {
     switch (activeTab) {
       case "professors":
         handleProfessorSubmit();
         break;
       case "exams":
-        handleExamSubmit();
+        if (editingExam) {
+          handleUpdateExam();
+        } else {
+          handleExamSubmit();
+        }
         break;
       case "salles":
       case "departments":
@@ -763,14 +1216,56 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     { header: "TIME", accessor: "time" as const },
     { header: "TYPE", accessor: (e: typeof exams[0]) => <span className="text-[9px] font-black px-2 py-1 bg-stone-100 border border-stone-200 uppercase tracking-widest">{e.type}</span> },
     { header: "ROOM", accessor: "room" as const },
-    { header: "ACTION", accessor: () => <button className="p-1 hover:text-app-primary"><MoreVertical className="w-4 h-4" /></button>, className: "text-right w-12" }
+    { 
+      header: "ACTION", 
+      accessor: (exam: typeof exams[0]) => (
+        <div className="flex gap-2 justify-end">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleEditExam(exam); }}
+            className="p-1 text-stone-500 hover:text-app-primary transition-colors"
+            title="Edit"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(exam.id); setDeleteConfirmType('exam'); }}
+            className="p-1 text-stone-500 hover:text-red-500 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      className: "text-right w-20"
+    }
   ];
 
   const deptColumns = [
     { header: "DEPT NAME", accessor: "name" as const, className: "font-black tracking-tight" },
     { header: "HEAD OF DEPT", accessor: "head" as const, className: "text-[10px] font-bold" },
     { header: "STAFF COUNT", accessor: (d: typeof departments[0]) => <span className="font-bold text-app-primary">{d.staff} PROF.</span> },
-    { header: "ACTION", accessor: () => <button className="p-1 hover:text-app-primary"><MoreVertical className="w-4 h-4" /></button>, className: "text-right w-12" }
+    { 
+      header: "ACTION", 
+      accessor: (dept: typeof departments[0]) => (
+        <div className="flex gap-2 justify-end">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleEditDepartment(dept); }}
+            className="p-1 text-stone-500 hover:text-app-primary transition-colors"
+            title="Edit"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(dept.id); }}
+            className="p-1 text-stone-500 hover:text-red-500 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ), 
+      className: "text-right w-20"
+    }
   ];
 
   const salleColumns = [
@@ -906,14 +1401,109 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Module / Subject</label>
-              <input 
-                type="text" 
-                value={examForm.module}
-                onChange={(e) => setExamForm({...examForm, module: e.target.value})}
-                placeholder="E.G. QUANTUM COMPUTING" 
+              <select 
+                value={examForm.module_id}
+                onChange={async (e) => {
+                  const selectedModule = modules.find(m => m.id === parseInt(e.target.value));
+                  let deptId = '';
+                  let deptName = '';
+                  
+                  if (selectedModule) {
+                    // Try to get department_id from module (set in fetchFilieresAndModules)
+                    deptId = selectedModule.department_id?.toString() || '';
+                    deptName = selectedModule.department_name || '';
+                    
+                    // If module doesn't have department info, try to get it from filier
+                    if (!deptId && selectedModule.filier_id) {
+                      const filier = filieres.find(f => f.id === selectedModule.filier_id);
+                      deptId = filier?.department_id?.toString() || '';
+                      deptName = filier?.department_name || '';
+                    }
+                    
+                    // Fallback: look up department name from departments list
+                    if (deptId && !deptName) {
+                      deptName = departments.find(d => d.id.toString() === deptId)?.name || 'Unknown';
+                    }
+                    
+                    if (!deptName) {
+                      deptName = 'Unknown';
+                    }
+                  }
+                  
+                  // Fetch existing exams for this module to determine available types
+                  let availableTypes = ['NORMAL', 'RATTRAPAGE'];
+                  if (selectedModule) {
+                    if (useMockData) {
+                      const existingExams = exams.filter(e => e.module === selectedModule.name);
+                      const existingTypes = existingExams.map(e => e.type);
+                      availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+                    } else {
+                      try {
+                        const moduleExamsResponse = await examService.getByModule(parseInt(e.target.value));
+                        if (moduleExamsResponse.success && moduleExamsResponse.data) {
+                          const existingTypes = moduleExamsResponse.data.map((ex: any) => ex.exam_type);
+                          availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+                        }
+                      } catch (err) {
+                        console.error('Error fetching module exams:', err);
+                        // Fallback: use all exams and filter by module
+                        try {
+                          const allExamsResponse = await examService.getAll();
+                          if (allExamsResponse.success && allExamsResponse.data) {
+                            const existingTypes = allExamsResponse.data
+                              .filter((ex: any) => ex.module_id === parseInt(e.target.value))
+                              .map((ex: any) => ex.exam_type);
+                            availableTypes = ['NORMAL', 'RATTRAPAGE'].filter(t => !existingTypes.includes(t));
+                          }
+                        } catch (fallbackErr) {
+                          console.error('Error fetching all exams for fallback:', fallbackErr);
+                          // If all else fails, keep both types available
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Set first available type as default, or keep current if it's still available
+                  let defaultType = examForm.exam_type;
+                  if (availableTypes.length > 0) {
+                    if (!availableTypes.includes(examForm.exam_type)) {
+                      defaultType = availableTypes[0];
+                    }
+                  } else {
+                    defaultType = 'NORMAL';
+                  }
+                  
+                  setAvailableExamTypes(availableTypes);
+                  setExamForm({
+                    ...examForm,
+                    module_id: e.target.value,
+                    module: selectedModule ? selectedModule.name : '',
+                    department_id: deptId,
+                    department_name: deptName,
+                    exam_type: defaultType,
+                  });
+                }}
                 className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-              />
+                required
+              >
+                <option value="">Select a Module</option>
+                {modules.filter(m => m.is_active !== false).map(module => (
+                  <option key={module.id} value={module.id}>{module.name} {module.code && `- ${module.code}`}</option>
+                ))}
+              </select>
             </div>
+            {examForm.module_id && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Department</label>
+                <input 
+                  type="text"
+                  value={examForm.department_name || 'Select a module first'}
+                  readOnly
+                  className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase text-stone-500 cursor-not-allowed"
+                />
+                <p className="text-[10px] text-stone-400">* Automatically selected based on module's filiere</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Date</label>
@@ -922,37 +1512,92 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                   value={examForm.date}
                   onChange={(e) => setExamForm({...examForm, date: e.target.value})}
                   className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                  required
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Time</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Exam Type</label>
+                <select 
+                  value={examForm.exam_type}
+                  onChange={(e) => setExamForm({...examForm, exam_type: e.target.value})}
+                  className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                  required
+                  disabled={availableExamTypes.length === 0}
+                >
+                  {availableExamTypes.length === 0 ? (
+                    <option value="">NO AVAILABLE TYPES - Both NORMAL and RATTRAPAGE exams already exist for this module</option>
+                  ) : (
+                    availableExamTypes.map(type => (
+                      <option key={type} value={type}>
+                        {type === 'RATTRAPAGE' ? 'RATTRAPAGE (Makeup)' : type}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {availableExamTypes.length === 0 && (
+                  <p className="text-[10px] text-red-500 font-bold">⚠️ Both exam types already exist for this module. Delete one to create a new exam.</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Start Time</label>
                 <input 
                   type="time" 
-                  value={examForm.time}
-                  onChange={(e) => setExamForm({...examForm, time: e.target.value})}
+                  value={examForm.start_time}
+                  onChange={(e) => setExamForm({...examForm, start_time: e.target.value})}
                   className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">End Time</label>
+                <input 
+                  type="time" 
+                  value={examForm.end_time}
+                  onChange={(e) => setExamForm({...examForm, end_time: e.target.value})}
+                  className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                  required
                 />
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Assigned Exam Room (Salle)</label>
-              <select 
-                value={examForm.salle}
-                onChange={(e) => setExamForm({...examForm, salle: e.target.value})}
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Exam Room (Salle)</label>
+                <select 
+                  value={examForm.salle_id}
+                  onChange={(e) => {
+                    const selectedSalle = salles.find(s => s.id === parseInt(e.target.value));
+                    setExamForm({
+                      ...examForm,
+                      salle_id: e.target.value,
+                      salle: selectedSalle ? selectedSalle.name : '',
+                    });
+                  }}
+                  className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                  required
+                >
+                  <option value="">Select a Room</option>
+                  {salles.filter(s => s.is_active).map(salle => (
+                    <option key={salle.id} value={salle.id}>{salle.name} ({salle.code}) - {salle.type} {salle.capacity > 0 && `- Cap: ${salle.capacity}`}</option>
+                  ))}
+                </select>
+              </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Notes</label>
+              <textarea 
+                value={examForm.notes || ''}
+                onChange={(e) => setExamForm({...examForm, notes: e.target.value})}
+                placeholder="Additional notes about this exam..."
                 className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-              >
-                <option>AMPHI A</option>
-                <option>AMPHI B</option>
-                <option>SALLE B12</option>
-                <option>LAB 201</option>
-              </select>
+                rows={3}
+              />
             </div>
             <button 
               type="submit" 
               disabled={isLoading}
               className="w-full bg-app-fg text-white py-4 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all disabled:opacity-50"
             >
-              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> SCHEDULE EXAM</>}
+              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingExam ? 'UPDATE EXAM' : 'SCHEDULE EXAM'}</>}
             </button>
           </form>
         );
@@ -1047,6 +1692,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                     required
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Department Code</label>
+                  <input 
+                    type="text" 
+                    value={resourceForm.code}
+                    onChange={(e) => setResourceForm({...resourceForm, code: e.target.value})}
+                    placeholder="E.G. CS" 
+                    className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                  />
+                </div>
               </>
             )}
             <button 
@@ -1054,7 +1709,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               disabled={isLoading}
               className="w-full bg-app-fg text-white py-4 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all disabled:opacity-50"
             >
-              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> SAVE {activeTab === "salles" ? "SALLE" : "DEPARTMENT"}</>}
+              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {activeTab === "salles" ? (editingSalle ? "UPDATE SALLE" : "SAVE SALLE") : (editingDepartment ? "UPDATE DEPARTMENT" : "SAVE DEPARTMENT")}</>}
             </button>
           </form>
         );
@@ -1311,16 +1966,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteConfirmId !== null}
-        onClose={() => setDeleteConfirmId(null)}
+        onClose={() => { setDeleteConfirmId(null); setDeleteConfirmType(null); }}
         title="Confirm Delete"
       >
         <div className="p-4">
           <p className="text-sm font-medium text-stone-600 mb-6">
-            Are you sure you want to delete this {activeTab === "professors" ? "Professor" : "Salle"}? This action cannot be undone.
+            Are you sure you want to delete this {deleteConfirmType === 'exam' ? 'Exam' : activeTab === "professors" ? "Professor" : activeTab === "departments" ? "Department" : "Salle"}? This action cannot be undone.
           </p>
           <div className="flex gap-4 justify-end">
             <button
-              onClick={() => setDeleteConfirmId(null)}
+              onClick={() => { setDeleteConfirmId(null); setDeleteConfirmType(null); }}
               className="px-4 py-2 bg-stone-100 border border-stone-200 text-stone-600 text-xs font-bold uppercase tracking-wider hover:bg-stone-200 transition-all"
             >
               Cancel
@@ -1328,8 +1983,12 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             <button
               onClick={() => {
                 if (deleteConfirmId) {
-                  if (activeTab === "professors") {
+                  if (deleteConfirmType === 'exam') {
+                    handleDeleteExam(deleteConfirmId);
+                  } else if (activeTab === "professors") {
                     handleDeleteProfessor(deleteConfirmId);
+                  } else if (activeTab === "departments") {
+                    handleDeleteDepartment(deleteConfirmId);
                   } else {
                     handleDeleteSalle(deleteConfirmId);
                   }
@@ -1351,6 +2010,8 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           setError(null);
           setSuccess(null);
           setEditingSalle(null);
+          setEditingDepartment(null);
+          setEditingExam(null);
           setSelectedProfessor(null);
           setProfessorForm({
             username: '',
@@ -1362,7 +2023,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             department: 'Computer Science'
           });
         }}
-        title={activeTab === "professors" ? (selectedProfessor ? 'EDIT PROFESSOR' : 'ADD PROFESSOR') : `${editingSalle ? 'Edit' : 'Add'} ${activeTab === "overview" ? "Resource" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+        title={activeTab === "professors" ? (selectedProfessor ? 'EDIT PROFESSOR' : 'ADD PROFESSOR') : activeTab === "exams" && editingExam ? 'UPDATE EXAM' : `${editingSalle ? 'Edit' : 'Add'} ${activeTab === "overview" ? "Resource" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
       >
         {renderForm()}
         

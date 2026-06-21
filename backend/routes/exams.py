@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models import db, Exam, Salle, Department, Assignment, Professor
+from models import db, Exam, Salle, Department, Assignment, Professor, Module, Filier
 from utils.helpers import success_response, error_response, admin_required, pagination_response, validate_date_format, validate_time_format
 from datetime import datetime, time
 
@@ -133,6 +133,31 @@ def create_exam():
     if not department:
         return error_response('Department not found', 404)
     
+    # Check if an exam with the same module and type already exists
+    module_name = data.get('module')
+    module_id = data.get('module_id')
+    exam_type = data.get('exam_type')
+    
+    # Check by module_id first (more reliable), then by module name
+    existing_module_exam = None
+    if module_id:
+        existing_module_exam = Exam.query.filter_by(
+            module_id=module_id,
+            exam_type=exam_type
+        ).first()
+    
+    if not existing_module_exam and module_name:
+        existing_module_exam = Exam.query.filter_by(
+            module=module_name,
+            exam_type=exam_type
+        ).first()
+    
+    if existing_module_exam:
+        return error_response(
+            f'An exam for module "{module_name}" with type "{exam_type}" already exists. Only one {exam_type} exam per module is allowed.',
+            400
+        )
+    
     # Parse date and time
     date_obj = datetime.strptime(data.get('date'), '%Y-%m-%d').date()
     start_time = datetime.strptime(data.get('start_time'), '%H:%M').time()
@@ -143,7 +168,22 @@ def create_exam():
     end_dt = datetime.combine(date_obj, end_time)
     duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
     
+    # Check if room is available at the selected time
+    existing_exams = Exam.query.filter_by(
+        salle_id=salle_id,
+        date=date_obj
+    ).all()
+    
+    for existing_exam in existing_exams:
+        if (start_time < existing_exam.end_time and 
+            end_time > existing_exam.start_time):
+            return error_response(
+                f'Room {salle.name} is already booked on {date_obj} from {existing_exam.start_time.strftime("%H:%M")} to {existing_exam.end_time.strftime("%H:%M")} for {existing_exam.module}',
+                400
+            )
+    
     exam = Exam(
+        module_id=data.get('module_id'),
         module=data.get('module'),
         module_code=data.get('module_code', ''),
         exam_type=data.get('exam_type'),
@@ -183,6 +223,9 @@ def update_exam(exam_id):
     if not data:
         return error_response('No data provided', 400)
     
+    if 'module_id' in data:
+        exam.module_id = data.get('module_id')
+    
     if 'module' in data:
         exam.module = data.get('module')
     
@@ -221,6 +264,52 @@ def update_exam(exam_id):
         if not salle:
             return error_response('Salle not found', 404)
         exam.salle_id = data.get('salle_id')
+    
+    # Check if changing to a module+type combination that already exists
+    if ('module' in data or 'module_id' in data or 'exam_type' in data) and exam.module:
+        new_module_id = data.get('module_id') if 'module_id' in data else exam.module_id
+        new_module = data.get('module') if 'module' in data else exam.module
+        new_type = data.get('exam_type') if 'exam_type' in data else exam.exam_type
+        
+        # Check by module_id first, then by module name
+        existing_module_exam = None
+        if new_module_id:
+            existing_module_exam = Exam.query.filter(
+                Exam.id != exam_id,
+                Exam.module_id == new_module_id,
+                Exam.exam_type == new_type
+            ).first()
+        
+        if not existing_module_exam and new_module:
+            existing_module_exam = Exam.query.filter(
+                Exam.id != exam_id,
+                Exam.module == new_module,
+                Exam.exam_type == new_type
+            ).first()
+        
+        if existing_module_exam:
+            return error_response(
+                f'An exam for module "{new_module}" with type "{new_type}" already exists. Only one {new_type} exam per module is allowed.',
+                400
+            )
+    
+    # Check room availability if salle, date, or time changed
+    if ('salle_id' in data or 'date' in data or 'start_time' in data or 'end_time' in data) and exam.salle_id:
+        salle = Salle.query.get(exam.salle_id)
+        if salle:
+            existing_exams = Exam.query.filter(
+                Exam.id != exam_id,
+                Exam.salle_id == exam.salle_id,
+                Exam.date == exam.date
+            ).all()
+            
+            for existing_exam in existing_exams:
+                if (exam.start_time < existing_exam.end_time and 
+                    exam.end_time > existing_exam.start_time):
+                    return error_response(
+                        f'Room {salle.name} is already booked on {exam.date} from {existing_exam.start_time.strftime("%H:%M")} to {existing_exam.end_time.strftime("%H:%M")} for {existing_exam.module}',
+                        400
+                    )
     
     if 'department_id' in data:
         department = Department.query.get(data.get('department_id'))
@@ -429,3 +518,50 @@ def get_upcoming_exams():
         per_page=exams.per_page,
         total=exams.total
     )
+
+
+@exams_bp.route('/module/<int:module_id>', methods=['GET'])
+@jwt_required()
+def get_exams_by_module(module_id):
+    """Get all exams for a specific module"""
+    # Import Module here to avoid circular import issues
+    from models import Module
+    
+    module = Module.query.get(module_id)
+    
+    if not module:
+        return error_response('Module not found', 404)
+    
+    exams = Exam.query.filter_by(module_id=module_id).order_by(Exam.date.asc(), Exam.start_time.asc()).all()
+    
+    exams_list = [e.to_dict() for e in exams]
+    
+    return success_response(exams_list)
+
+
+@exams_bp.route('/module/<int:module_id>/available-types', methods=['GET'])
+@jwt_required()
+def get_available_exam_types(module_id):
+    """Get available exam types for a module (returns types that don't have an exam yet)"""
+    from models import Module
+    
+    module = Module.query.get(module_id)
+    
+    if not module:
+        return error_response('Module not found', 404)
+    
+    # Get all exam types that already exist for this module
+    existing_types = [e.exam_type for e in Exam.query.filter_by(module_id=module_id).all()]
+    
+    # All possible exam types
+    all_types = ['NORMAL', 'RATTRAPAGE']
+    
+    # Filter out existing types
+    available_types = [t for t in all_types if t not in existing_types]
+    
+    return success_response({
+        'module_id': module_id,
+        'module_name': module.name,
+        'existing_types': existing_types,
+        'available_types': available_types
+    })
