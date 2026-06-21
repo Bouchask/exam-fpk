@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ArrowRight, ShieldCheck, RefreshCcw } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 interface LoginProps {
   onLogin: (role: "admin" | "professor") => void;
@@ -8,24 +9,29 @@ interface LoginProps {
 export const Login = ({ onLogin }: LoginProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { login, isLoading: authLoading, error: authError, clearError } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    clearError();
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (email === "admin" && password === "admin") {
-        onLogin("admin");
-      } else if (email === "prof" && password === "prof") {
-        onLogin("professor");
-      } else {
-        setError("Invalid credentials. Use 'admin/admin' or 'prof/prof'.");
-        setIsLoading(false);
+    try {
+      const success = await login(email, password);
+      if (success) {
+        // Get the user from localStorage to determine role
+        const user = localStorage.getItem('user');
+        if (user) {
+          const userObj = JSON.parse(user);
+          onLogin(userObj.role as "admin" | "professor");
+        }
       }
-    }, 800);
+    } catch (err) {
+      // Error is handled by the auth context
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -75,19 +81,19 @@ export const Login = ({ onLogin }: LoginProps) => {
               </div>
             </div>
 
-            {error && (
+            {authError && (
               <div className="p-4 bg-red-900 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
                 <ShieldCheck className="w-4 h-4 shrink-0" />
-                {error}
+                {authError}
               </div>
             )}
 
             <button 
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || authLoading}
               className="w-full bg-app-fg text-white py-5 rounded-none font-black uppercase tracking-[0.3em] text-xs hover:bg-app-primary transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              {isLoading ? (
+              {(isLoading || authLoading) ? (
                 <RefreshCcw className="w-5 h-5 animate-spin" />
               ) : (
                 <>
@@ -107,5 +113,3 @@ export const Login = ({ onLogin }: LoginProps) => {
     </div>
   );
 };
-
-import React from "react";

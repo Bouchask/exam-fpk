@@ -80,7 +80,7 @@ export const moduleService = {
     name: string;
     code?: string;
     filier_id: number;
-    credits?: number;
+    professor_id: number;
     hours?: number;
     description?: string;
     is_active?: boolean;

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models import Assignment, Professor, Exam, Incident, AssignmentHistory
+from models import db, Assignment, Professor, Exam, Incident, AssignmentHistory
 from utils.helpers import success_response, error_response, admin_required, professor_required, pagination_response
 from datetime import datetime
 
@@ -110,11 +110,9 @@ def update_assignment(assignment_id):
         assignment.notes = data.get('notes')
     
     try:
-        from app import db
         db.session.commit()
         return success_response(assignment.to_dict(), 'Assignment updated successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -145,7 +143,6 @@ def complete_assignment(assignment_id):
     )
     
     try:
-        from app import db
         db.session.add(history)
         db.session.commit()
         
@@ -154,7 +151,6 @@ def complete_assignment(assignment_id):
             'history': history.to_dict()
         }, 'Assignment marked as completed')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -170,7 +166,6 @@ def delete_assignment(assignment_id):
         return error_response('Assignment not found', 404)
     
     try:
-        from app import db
         
         # Decrement professor's completed guards
         professor = Professor.query.get(assignment.professor_id)
@@ -182,7 +177,6 @@ def delete_assignment(assignment_id):
         
         return success_response(None, 'Assignment deleted successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -241,12 +235,10 @@ def create_incident(assignment_id):
     )
     
     try:
-        from app import db
         db.session.add(incident)
         db.session.commit()
         return success_response(incident.to_dict(), 'Incident reported successfully'), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 

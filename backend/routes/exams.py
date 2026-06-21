@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models import Exam, Salle, Department, Assignment, Professor
+from models import db, Exam, Salle, Department, Assignment, Professor
 from utils.helpers import success_response, error_response, admin_required, pagination_response, validate_date_format, validate_time_format
 from datetime import datetime, time
 
@@ -8,6 +8,7 @@ exams_bp = Blueprint('exams', __name__)
 
 
 @exams_bp.route('/', methods=['GET'])
+@exams_bp.route('', methods=['GET'])
 @jwt_required()
 def get_exams():
     """Get all exams"""
@@ -159,12 +160,10 @@ def create_exam():
     )
     
     try:
-        from app import db
         db.session.add(exam)
         db.session.commit()
         return success_response(exam.to_dict(), 'Exam created successfully'), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -242,11 +241,9 @@ def update_exam(exam_id):
         exam.notes = data.get('notes')
     
     try:
-        from app import db
         db.session.commit()
         return success_response(exam.to_dict(), 'Exam updated successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -262,12 +259,10 @@ def delete_exam(exam_id):
         return error_response('Exam not found', 404)
     
     try:
-        from app import db
         db.session.delete(exam)
         db.session.commit()
         return success_response(None, 'Exam deleted successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -325,7 +320,6 @@ def assign_professor_to_exam(exam_id):
     )
     
     try:
-        from app import db
         db.session.add(assignment)
         
         # Increment professor's completed guards
@@ -337,7 +331,6 @@ def assign_professor_to_exam(exam_id):
             'Professor assigned to exam successfully'
         ), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -388,7 +381,6 @@ def unassign_professor(exam_id, professor_id):
         return error_response('Assignment not found', 404)
     
     try:
-        from app import db
         
         # Decrement professor's completed guards
         professor = Professor.query.get(professor_id)
@@ -400,7 +392,6 @@ def unassign_professor(exam_id, professor_id):
         
         return success_response(None, 'Professor unassigned from exam successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
-from models import db, Module, Filier
+from models import db, Module, Filier, Professor
 from utils.helpers import success_response, error_response, admin_required
 
 modules_bp = Blueprint('modules', __name__)
@@ -58,18 +58,28 @@ def create_module():
     """Create a new module (admin only)"""
     data = request.get_json()
     
-    required_fields = ['name', 'filier_id']
+    required_fields = ['name', 'filier_id', 'professor_id']
     for field in required_fields:
         if field not in data:
             return error_response(f'{field} is required', 400)
     
     name = data.get('name')
     filier_id = data.get('filier_id')
+    professor_id = data.get('professor_id')
     
     # Check if filier exists
     filier = Filier.query.get(filier_id)
     if not filier:
         return error_response('Filier not found', 404)
+    
+    # Check if professor exists
+    professor = Professor.query.get(professor_id)
+    if not professor:
+        return error_response('Professor not found', 404)
+    
+    # Check if professor and filier are in the same department
+    if professor.department_id != filier.department_id:
+        return error_response('Professor and Filier must be in the same department', 400)
     
     # Check if module with this name already exists
     if Module.query.filter_by(name=name).first():
@@ -88,11 +98,16 @@ def create_module():
             400
         )
     
+    # Check if professor has reached max 3 modules
+    professor_module_count = Module.query.filter_by(professor_id=professor_id).count()
+    if professor_module_count >= 3:
+        return error_response('Professor has reached maximum of 3 modules', 400)
+    
     module = Module(
         name=name,
         code=code,
         filier_id=filier_id,
-        credits=data.get('credits', 3),
+        professor_id=professor_id,
         hours=data.get('hours', 45),
         description=data.get('description'),
         is_active=data.get('is_active', True)
@@ -138,8 +153,20 @@ def update_module(module_id):
             return error_response('Filier not found', 404)
         module.filier_id = data.get('filier_id')
     
-    if 'credits' in data:
-        module.credits = data.get('credits')
+    if 'professor_id' in data:
+        professor = Professor.query.get(data.get('professor_id'))
+        if not professor:
+            return error_response('Professor not found', 404)
+        
+        # Check if professor and filier are in the same department
+        # Get the filier_id (either existing or being updated in this request)
+        target_filier_id = data.get('filier_id') if 'filier_id' in data else module.filier_id
+        if target_filier_id:
+            filier = Filier.query.get(target_filier_id)
+            if filier and professor.department_id != filier.department_id:
+                return error_response('Professor and Filier must be in the same department', 400)
+        
+        module.professor_id = data.get('professor_id')
     
     if 'hours' in data:
         module.hours = data.get('hours')

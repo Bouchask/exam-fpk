@@ -14,8 +14,11 @@ def create_app(config_name='default'):
     # Load configuration
     app.config.from_object(config[config_name])
     
+    # Disable strict slashes to avoid 308 redirects on CORS preflight
+    app.url_map.strict_slashes = False
+    
     # Enable CORS
-    CORS(app, resources={r"/*": {"origins": "*"}})
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
     
     # Initialize JWT
     jwt = JWTManager(app)

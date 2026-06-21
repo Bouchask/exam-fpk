@@ -7,8 +7,11 @@ import { ProfessorPortal } from "./views/ProfessorPortal";
 import { ProfessorHistory } from "./views/ProfessorHistory";
 import { ProfessorIncidents } from "./views/ProfessorIncidents";
 import { Login } from "./views/Login";
+import { useAuth } from "./contexts/AuthContext";
+import type { User } from "./types";
 
 function App() {
+  const { user: authUser, isAuthenticated, logout: authLogout } = useAuth();
   const [userRole, setUserRole] = useState<"admin" | "professor" | null>(null);
   const [currentView, setCurrentView] = useState("dashboard");
 
@@ -23,10 +26,20 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authLogout();
     setUserRole(null);
     window.location.hash = "";
   };
+
+  // Sync userRole with authUser when auth state changes
+  useEffect(() => {
+    if (authUser) {
+      setUserRole(authUser.role as "admin" | "professor");
+    } else if (!isAuthenticated) {
+      setUserRole(null);
+    }
+  }, [authUser, isAuthenticated]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -78,7 +91,7 @@ function App() {
   };
 
   return (
-    <Layout activeView={currentView} user={user} userRole={userRole}>
+    <Layout activeView={currentView} user={authUser} userRole={userRole}>
       <div className="mb-8 flex items-center justify-between border-b-2 border-stone-100 pb-6 md:hidden">
         <select 
           value={currentView} 

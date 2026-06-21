@@ -4,8 +4,9 @@ import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { professorService, examService, departmentService, salleService, authService, dashboardService, useMockData } from "../services";
-import type { Professor, Exam, Department, Salle, DashboardOverview } from "../types";
+import { professorService, examService, departmentService, salleService, authService, dashboardService, filierService, moduleService, useMockData } from "../services";
+import type { Professor, Exam, Department, Salle, DashboardOverview, Filier, Module } from "../types";
+import { Layers } from "lucide-react";
 
 interface AdminDashboardProps {
   forcedTab?: "overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules";
@@ -42,45 +43,38 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     floor: '1',
     building: 'Main',
   });
+  
+  // Filier and Module forms
+  const [filierForm, setFilierForm] = useState({
+    name: '',
+    code: '',
+    department_id: 0,
+    max_modules: 7,
+    description: '',
+    is_active: true,
+  });
+  const [moduleForm, setModuleForm] = useState({
+    name: '',
+    code: '',
+    filier_id: 0,
+    credits: 3,
+    hours: 45,
+    description: '',
+    is_active: true,
+  });
 
   // Data state
-  const [professors, setProfessors] = useState<{ id: number; name: string; dept: string; guards: number; user?: any }[]>([]);
+  const [professors, setProfessors] = useState<{ id: number; name: string; dept: string; guards: number }[]>([]);
   const [exams, setExams] = useState<{ id: number; module: string; date: string; time: string; type: string; room: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: number; name: string; head: string; staff: number }[]>([]);
   const [salles, setSalles] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string; is_active: boolean }[]>([]);
+  const [filieres, setFilieres] = useState<Filier[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [allDepartments, setAllDepartments] = useState<Department[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [editingSalle, setEditingSalle] = useState<{ id: number; name: string; code: string; capacity: number; type: string; floor: string; building: string } | null>(null);
-  const [selectedProfessor, setSelectedProfessor] = useState<{ id: number; username?: string; email?: string; first_name?: string; last_name?: string; institutional_grade?: string; department?: string; user?: any } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  
-  // Load professor form data when selectedProfessor changes
-  useEffect(() => {
-    if (selectedProfessor) {
-      const user = selectedProfessor.user || {} as any;
-      const nameParts = selectedProfessor.name.split(' ');
-      setProfessorForm({
-        username: user.username || selectedProfessor.username || nameParts.join(' '),
-        password: '', // Do NOT display current password
-        email: user.email || selectedProfessor.email || '',
-        first_name: user.first_name || nameParts[0] || '',
-        last_name: user.last_name || nameParts.slice(1).join(' ') || '',
-        institutional_grade: user.institutional_grade || selectedProfessor.institutional_grade || 'PR',
-        department: selectedProfessor.dept || selectedProfessor.department || 'Computer Science',
-      });
-    } else {
-      // Reset form when not editing
-      setProfessorForm({
-        username: '',
-        password: '',
-        email: '',
-        first_name: '',
-        last_name: '',
-        institutional_grade: 'PR',
-        department: 'Computer Science'
-      });
-    }
-  }, [selectedProfessor]);
   
   // Chart data - will be populated from real data
   const [quotaData, setQuotaData] = useState<Array<{ name: string; value: number; color: string }>>([
@@ -113,7 +107,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           name: p.name || p.user?.full_name || 'Unknown',
           dept: p.department || 'Unknown',
           guards: p.completed_guards || 0,
-          user: p.user,
         })));
       }
     } catch (err) {
@@ -227,14 +220,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
             color: colors[index % colors.length],
           }));
           setDeptData(newDeptData);
-        } else {
-          // Use default data if no department data is available
-          setDeptData([
-            { name: 'CS', value: 45, color: '#4e342e' },
-            { name: 'MATH', value: 25, color: '#1a1210' },
-            { name: 'PHYSICS', value: 20, color: '#8d6e63' },
-            { name: 'OTHERS', value: 10, color: '#d7ccc8' },
-          ]);
         }
       }
     } catch (err) {
@@ -285,7 +270,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
 
   // Form submit handlers
   const handleProfessorSubmit = async () => {
-    // Validate required fields - for edit, password is optional
+    // Validate all required fields
     if (!professorForm.username.trim()) {
       setError('Please enter a username');
       return;
@@ -298,14 +283,11 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       setError('Please enter a last name');
       return;
     }
-    // For create, email and password are required; for edit, they're optional
-    if (!selectedProfessor && !professorForm.email.trim()) {
+    if (!professorForm.email.trim()) {
       setError('Please enter an email');
       return;
     }
-    
-    if (!selectedProfessor && !professorForm.password.trim())
-    if (!selectedProfessor && !professorForm.password.trim()) {
+    if (!professorForm.password.trim()) {
       setError('Please enter a password');
       return;
     }
@@ -315,41 +297,16 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       setError(null);
       
       if (useMockData) {
-        if (selectedProfessor) {
-          // Update existing professor - update both professor and user data
-          setProfessors(prev => prev.map(p => 
-            p.id === selectedProfessor.id 
-              ? {
-                  ...p,
-                  name: `${professorForm.first_name} ${professorForm.last_name}`,
-                  dept: professorForm.department,
-                  user: {
-                    ...p.user,
-                    username: professorForm.username || p.user?.username || '',
-                    first_name: professorForm.first_name || p.user?.first_name || '',
-                    last_name: professorForm.last_name || p.user?.last_name || '',
-                    email: professorForm.email || p.user?.email || '',
-                    institutional_grade: professorForm.institutional_grade || p.user?.institutional_grade || 'PR',
-                  },
-                }
-              : p
-          ));
-          setSuccess('Professor updated successfully!');
-        } else {
-          // Add new professor
-          setProfessors(prev => [
-            ...prev,
-            {
-              id: prev.length + 1,
-              name: `${professorForm.first_name} ${professorForm.last_name}`,
-              dept: professorForm.department,
-              guards: 0,
-            }
-          ]);
-          setSuccess('Professor added successfully!');
-        }
-        
-        // Reset form and close modal
+        setProfessors(prev => [
+          ...prev,
+          {
+            id: prev.length + 1,
+            name: `${professorForm.first_name} ${professorForm.last_name}`,
+            dept: professorForm.department,
+            guards: 0,
+          }
+        ]);
+        setSuccess('Professor added successfully!');
         setProfessorForm({
           username: '',
           password: '',
@@ -359,123 +316,50 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           institutional_grade: 'PR',
           department: 'Computer Science'
         });
-        setSelectedProfessor(null);
         setIsModalOpen(false);
         return;
       }
 
       // Real API call - get department ID first
       const deptResponse = await departmentService.getAll(1, 50);
-      let dept = deptResponse.data?.find((d: any) => d.name === professorForm.department);
-      
-      // If editing and no department found by name, try to use the existing professor's department_id
-      if (!dept && selectedProfessor?.department_id) {
-        dept = deptResponse.data?.find((d: any) => d.id === selectedProfessor.department_id);
-      }
+      const dept = deptResponse.data?.find((d: any) => d.name === professorForm.department);
       
       if (!dept) {
         setError('Department not found');
         return;
       }
       
-      if (selectedProfessor) {
-        // Update existing professor - only send fields that backend accepts
-        const updateData: Partial<import('../types').Professor> = {
-          department_id: dept.id,
-          max_guards: 4,
-          academic_title: professorForm.institutional_grade,
-        };
-        
-        try {
-          // Build user update object
-          const userUpdate: any = {
-            first_name: professorForm.first_name,
-            last_name: professorForm.last_name,
-            institutional_grade: professorForm.institutional_grade,
-          };
-          
-          // Only include email and username if they were provided
-          if (professorForm.email) {
-            userUpdate.email = professorForm.email;
-          }
-          if (professorForm.username) {
-            userUpdate.username = professorForm.username;
-          }
-          if (professorForm.password) {
-            userUpdate.password = professorForm.password;
-          }
-          
-          // Update user information first (if user exists)
-          if (selectedProfessor.user?.id) {
-            console.log('Updating user:', selectedProfessor.user.id, userUpdate);
-            const userUpdateResponse = await authService.updateUser(selectedProfessor.user.id, userUpdate);
-            console.log('User update response:', userUpdateResponse);
-            if (!userUpdateResponse.success) {
-              setError(userUpdateResponse.message || 'Failed to update user information.');
-              return;
-            }
-          }
-          
-          // Update professor information
-          console.log('Updating professor:', selectedProfessor.id, updateData);
-          const updateResponse = await professorService.update(selectedProfessor.id, updateData);
-          console.log('Professor update response:', updateResponse);
-          
-          if (updateResponse.success) {
-            setSuccess('Professor updated successfully!');
-            setProfessorForm({
-              username: '',
-              password: '',
-              email: '',
-              first_name: '',
-              last_name: '',
-              institutional_grade: 'PR',
-              department: 'Computer Science'
-            });
-            setSelectedProfessor(null);
-            setIsModalOpen(false);
-            fetchProfessors();
-          } else {
-            setError(updateResponse.message || 'Failed to update professor. Please try again.');
-          }
-        } catch (err) {
-          console.error('Error updating professor:', err);
-          setError('Failed to update professor. Please try again.');
-        }
-      } else {
-        // Create new professor using register endpoint
-        const registerResponse = await authService.register({
-          username: professorForm.username,
-          password: professorForm.password,
-          email: professorForm.email,
-          first_name: professorForm.first_name,
-          last_name: professorForm.last_name,
-          role: 'professor',
-          institutional_grade: professorForm.institutional_grade,
-          department_id: dept.id
+      // Call register endpoint to create user + professor profile
+      const registerResponse = await authService.register({
+        username: professorForm.username,
+        password: professorForm.password,
+        email: professorForm.email,
+        first_name: professorForm.first_name,
+        last_name: professorForm.last_name,
+        role: 'professor',
+        institutional_grade: professorForm.institutional_grade,
+        department_id: dept.id
+      });
+      
+      if (registerResponse.success) {
+        setSuccess('Professor added successfully!');
+        setProfessorForm({
+          username: '',
+          password: '',
+          email: '',
+          first_name: '',
+          last_name: '',
+          institutional_grade: 'PR',
+          department: 'Computer Science'
         });
-        
-        if (registerResponse.success) {
-          setSuccess('Professor added successfully!');
-          setProfessorForm({
-            username: '',
-            password: '',
-            email: '',
-            first_name: '',
-            last_name: '',
-            institutional_grade: 'PR',
-            department: 'Computer Science'
-          });
-          setSelectedProfessor(null);
-          setIsModalOpen(false);
-          fetchProfessors();
-        } else {
-          setError(registerResponse.message || 'Failed to add professor');
-        }
+        setIsModalOpen(false);
+        fetchProfessors();
+      } else {
+        setError(registerResponse.message || 'Failed to add professor');
       }
     } catch (err) {
-      setError(selectedProfessor ? 'Failed to update professor. Please try again.' : 'Failed to add professor. Please try again.');
-      console.error(selectedProfessor ? 'Error updating professor:' : 'Error adding professor:', err);
+      setError('Failed to add professor. Please try again.');
+      console.error('Error adding professor:', err);
     } finally {
       setIsLoading(false);
     }
@@ -675,31 +559,6 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
     }
   };
 
-  const handleEditProfessor = (professor: typeof professors[0]) => {
-    // Set selected professor to trigger useEffect
-    setSelectedProfessor(professor);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteProfessor = async (professorId: number) => {
-    try {
-      setIsLoading(true);
-      if (useMockData) {
-        setProfessors(prev => prev.filter(p => p.id !== professorId));
-      } else {
-        await professorService.delete(professorId);
-        fetchProfessors();
-      }
-      setSuccess('Professor deleted successfully!');
-      setDeleteConfirmId(null);
-    } catch (err) {
-      setError('Failed to delete professor. Please try again.');
-      console.error('Error deleting professor:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSubmit = () => {
     switch (activeTab) {
       case "professors":
@@ -718,9 +577,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   };
 
   const professorColumns = [
-    { header: "USERNAME", accessor: (p: typeof professors[0]) => p.user?.username || p.name || '', className: "font-black tracking-tight" },
-    { header: "EMAIL", accessor: (p: typeof professors[0]) => p.user?.email || '', className: "text-[10px] font-bold" },
-    { header: "NAME", accessor: (p: typeof professors[0]) => p.user ? `${p.user.first_name} ${p.user.last_name}` : p.name, className: "font-black tracking-tight" },
+    { header: "NAME", accessor: "name" as const, className: "font-black tracking-tight" },
     { header: "DEPARTMENT", accessor: "dept" as const, className: "text-[10px] font-bold" },
     { 
       header: "QUOTA STATUS", 
@@ -733,28 +590,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         </div>
       )
     },
-    { 
-      header: "ACTION", 
-      accessor: (professor: typeof professors[0]) => (
-        <div className="flex gap-2 justify-end">
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleEditProfessor(professor); }}
-            className="p-1 text-stone-500 hover:text-app-primary transition-colors"
-            title="Edit"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(professor.id); }}
-            className="p-1 text-stone-500 hover:text-red-500 transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ),
-      className: "text-right w-20"
-    }
+    { header: "ACTION", accessor: () => <button className="p-1 hover:text-app-primary"><MoreVertical className="w-4 h-4" /></button>, className: "text-right w-12" }
   ];
 
   const examColumns = [
@@ -851,18 +687,18 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                 onChange={(e) => setProfessorForm({...professorForm, email: e.target.value})}
                 placeholder="e.g., alan.turing@fpk.edu" 
                 className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-                required={!selectedProfessor}
+                required
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Password{selectedProfessor ? ' (keep empty to unchanged)' : '*'}</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Password</label>
               <input 
                 type="password" 
                 value={professorForm.password}
                 onChange={(e) => setProfessorForm({...professorForm, password: e.target.value})}
-                required={!selectedProfessor}
-                placeholder={selectedProfessor ? "Leave empty to keep current password" : "Enter password"}
+                placeholder="Enter password" 
                 className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+                required
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -897,7 +733,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               disabled={isLoading}
               className="w-full bg-app-fg text-white py-4 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all disabled:opacity-50"
             >
-              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {selectedProfessor ? 'UPDATE PROFESSOR' : 'REGISTER STAFF'}</>}
+              {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> REGISTER STAFF</>}
             </button>
           </form>
         );
@@ -1316,7 +1152,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       >
         <div className="p-4">
           <p className="text-sm font-medium text-stone-600 mb-6">
-            Are you sure you want to delete this {activeTab === "professors" ? "Professor" : "Salle"}? This action cannot be undone.
+            Are you sure you want to delete this Salle? This action cannot be undone.
           </p>
           <div className="flex gap-4 justify-end">
             <button
@@ -1326,15 +1162,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               Cancel
             </button>
             <button
-              onClick={() => {
-                if (deleteConfirmId) {
-                  if (activeTab === "professors") {
-                    handleDeleteProfessor(deleteConfirmId);
-                  } else {
-                    handleDeleteSalle(deleteConfirmId);
-                  }
-                }
-              }}
+              onClick={() => deleteConfirmId && handleDeleteSalle(deleteConfirmId)}
               disabled={isLoading}
               className="px-4 py-2 bg-red-500 text-white text-xs font-bold uppercase tracking-wider hover:bg-red-600 transition-all disabled:opacity-50"
             >
@@ -1351,18 +1179,8 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
           setError(null);
           setSuccess(null);
           setEditingSalle(null);
-          setSelectedProfessor(null);
-          setProfessorForm({
-            username: '',
-            password: '',
-            email: '',
-            first_name: '',
-            last_name: '',
-            institutional_grade: 'PR',
-            department: 'Computer Science'
-          });
         }}
-        title={activeTab === "professors" ? (selectedProfessor ? 'EDIT PROFESSOR' : 'ADD PROFESSOR') : `${editingSalle ? 'Edit' : 'Add'} ${activeTab === "overview" ? "Resource" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+        title={`${editingSalle ? 'Edit' : 'Add'} ${activeTab === "overview" ? "Resource" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
       >
         {renderForm()}
         

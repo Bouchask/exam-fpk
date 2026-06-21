@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models import Incident, Professor, Assignment, Exam, User
+from models import db, Incident, Professor, Assignment, Exam, User
 from utils.helpers import success_response, error_response, admin_required, professor_required, pagination_response
 from datetime import datetime
 
@@ -105,12 +105,10 @@ def create_incident():
     )
     
     try:
-        from app import db
         db.session.add(incident)
         db.session.commit()
         return success_response(incident.to_dict(), 'Incident reported successfully'), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -159,11 +157,9 @@ def update_incident(incident_id):
             incident.resolved_by = current_user_id
     
     try:
-        from app import db
         db.session.commit()
         return success_response(incident.to_dict(), 'Incident updated successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -188,11 +184,9 @@ def resolve_incident(incident_id):
         incident.resolution_notes = data.get('resolution_notes')
     
     try:
-        from app import db
         db.session.commit()
         return success_response(incident.to_dict(), 'Incident resolved successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -208,12 +202,10 @@ def delete_incident(incident_id):
         return error_response('Incident not found', 404)
     
     try:
-        from app import db
         db.session.delete(incident)
         db.session.commit()
         return success_response(None, 'Incident deleted successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 

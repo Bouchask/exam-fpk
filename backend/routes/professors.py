@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models import User, Professor, Department, Assignment, Exam
+from models import db, User, Professor, Department, Assignment, Exam
 from utils.helpers import success_response, error_response, admin_required, professor_required, pagination_response
 from config import config
 
@@ -8,6 +8,7 @@ professors_bp = Blueprint('professors', __name__)
 
 
 @professors_bp.route('/', methods=['GET'])
+@professors_bp.route('', methods=['GET'])
 @jwt_required()
 def get_professors():
     """Get all professors (admin only)"""
@@ -102,12 +103,10 @@ def create_professor():
     )
     
     try:
-        from app import db
         db.session.add(professor)
         db.session.commit()
         return success_response(professor.to_dict(), 'Professor created successfully'), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -117,14 +116,18 @@ def create_professor():
 @admin_required
 def update_professor(professor_id):
     """Update a professor (admin only)"""
+    print(f'[DEBUG] Professor update request received for professor_id: {professor_id}')
     professor = Professor.query.get(professor_id)
     
     if not professor:
+        print(f'[DEBUG] Professor not found: {professor_id}')
         return error_response('Professor not found', 404)
     
     data = request.get_json()
+    print(f'[DEBUG] Professor update data: {data}')
     
     if not data:
+        print(f'[DEBUG] No data provided for professor update')
         return error_response('No data provided', 400)
     
     if 'department_id' in data:
@@ -143,11 +146,9 @@ def update_professor(professor_id):
         professor.completed_guards = data.get('completed_guards')
     
     try:
-        from app import db
         db.session.commit()
         return success_response(professor.to_dict(), 'Professor updated successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -163,12 +164,10 @@ def delete_professor(professor_id):
         return error_response('Professor not found', 404)
     
     try:
-        from app import db
         db.session.delete(professor)
         db.session.commit()
         return success_response(None, 'Professor deleted successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -250,14 +249,12 @@ def reset_professor_quota(professor_id):
     professor.completed_guards = 0
     
     try:
-        from app import db
         db.session.commit()
         return success_response({
             'message': 'Quota reset successfully',
             'new_quota': professor.quota_status
         })
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 

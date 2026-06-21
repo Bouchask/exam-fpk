@@ -133,7 +133,8 @@ export interface Module {
   code?: string;
   filier_id?: number;
   filier_name?: string;
-  credits?: number;
+  professor_id?: number;
+  professor_name?: string;
   hours?: number;
   description?: string;
   is_active?: boolean;

@@ -1,12 +1,13 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
-from models import Salle, Exam
+from models import db, Salle, Exam
 from utils.helpers import success_response, error_response, admin_required, pagination_response
 
 salles_bp = Blueprint('salles', __name__)
 
 
 @salles_bp.route('/', methods=['GET'])
+@salles_bp.route('', methods=['GET'])
 def get_salles():
     """Get all salles/rooms"""
     page = request.args.get('page', 1, type=int)
@@ -88,12 +89,10 @@ def create_salle():
     )
     
     try:
-        from app import db
         db.session.add(salle)
         db.session.commit()
         return success_response(salle.to_dict(), 'Salle created successfully'), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -139,11 +138,9 @@ def update_salle(salle_id):
         salle.is_active = data.get('is_active')
     
     try:
-        from app import db
         db.session.commit()
         return success_response(salle.to_dict(), 'Salle updated successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -159,12 +156,10 @@ def delete_salle(salle_id):
         return error_response('Salle not found', 404)
     
     try:
-        from app import db
         db.session.delete(salle)
         db.session.commit()
         return success_response(None, 'Salle deleted successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 

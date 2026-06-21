@@ -1,12 +1,13 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models import Department, User, Professor
+from models import db, Department, User, Professor
 from utils.helpers import success_response, error_response, admin_required, pagination_response
 
 departments_bp = Blueprint('departments', __name__)
 
 
 @departments_bp.route('/', methods=['GET'])
+@departments_bp.route('', methods=['GET'])
 def get_departments():
     """Get all departments"""
     page = request.args.get('page', 1, type=int)
@@ -71,12 +72,10 @@ def create_department():
     )
     
     try:
-        from app import db
         db.session.add(department)
         db.session.commit()
         return success_response(department.to_dict(), 'Department created successfully'), 201
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -116,11 +115,9 @@ def update_department(department_id):
         department.staff_count = data.get('staff_count')
     
     try:
-        from app import db
         db.session.commit()
         return success_response(department.to_dict(), 'Department updated successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -136,12 +133,10 @@ def delete_department(department_id):
         return error_response('Department not found', 404)
     
     try:
-        from app import db
         db.session.delete(department)
         db.session.commit()
         return success_response(None, 'Department deleted successfully')
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import check_password_hash
-from models import User, Professor, Department
+from models import db, User, Professor, Department
 from utils.helpers import success_response, error_response, validate_email
 from config import config
 
@@ -30,7 +30,7 @@ def login():
     
     # Create JWT token with role in claims
     access_token = create_access_token(
-        identity=user.id,
+        identity=str(user.id),
         additional_claims={'role': user.role, 'username': user.username, 'email': user.email}
     )
     
@@ -104,7 +104,6 @@ def register():
     user.set_password(data.get('password'))
     
     try:
-        from app import db
         db.session.add(user)
         db.session.commit()
         
@@ -124,7 +123,6 @@ def register():
         }, 'User registered successfully'), 201
         
     except Exception as e:
-        from app import db
         db.session.rollback()
         return error_response(str(e), 500)
 
@@ -163,7 +161,7 @@ def refresh_token():
         return error_response('User not found', 404)
     
     new_token = create_access_token(
-        identity=user.id,
+        identity=str(user.id),
         additional_claims={'role': user.role, 'username': user.username, 'email': user.email}
     )
     
@@ -200,10 +198,77 @@ def change_password():
     user.set_password(data.get('new_password'))
     
     try:
-        from app import db
         db.session.commit()
         return success_response(None, 'Password changed successfully')
     except Exception as e:
-        from app import db
+        db.session.rollback()
+        return error_response(str(e), 500)
+
+
+@auth_bp.route('/users/<int:user_id>', methods=['PUT', 'PATCH'])
+@jwt_required()
+def update_user(user_id):
+    """Update user information (admin only)"""
+    print(f'[DEBUG] User update request received for user_id: {user_id}')
+    claims = get_jwt()
+    
+    if claims.get('role') != 'admin':
+        print(f'[DEBUG] Admin access denied for user update')
+        return error_response('Admin access required', 403)
+    
+    user = User.query.get(user_id)
+    
+    if not user:
+        print(f'[DEBUG] User not found: {user_id}')
+        return error_response('User not found', 404)
+    
+    data = request.get_json()
+    print(f'[DEBUG] User update data: {data}')
+    
+    if not data:
+        print(f'[DEBUG] No data provided for user update')
+        return error_response('No data provided', 400)
+    
+    if 'username' in data:
+        # Check if username already exists for another user
+        existing_user = User.query.filter_by(username=data.get('username')).first()
+        if existing_user and existing_user.id != user_id:
+            return error_response('Username already exists', 400)
+        user.username = data.get('username')
+    
+    if 'email' in data:
+        # Validate email format
+        if not validate_email(data.get('email')):
+            return error_response('Invalid email format', 400)
+        # Check if email already exists for another user
+        existing_user = User.query.filter_by(email=data.get('email')).first()
+        if existing_user and existing_user.id != user_id:
+            return error_response('Email already exists', 400)
+        user.email = data.get('email')
+    
+    if 'first_name' in data:
+        user.first_name = data.get('first_name')
+    
+    if 'last_name' in data:
+        user.last_name = data.get('last_name')
+    
+    if 'institutional_grade' in data:
+        user.institutional_grade = data.get('institutional_grade')
+    
+    if 'department_id' in data:
+        user.department_id = data.get('department_id')
+    
+    if 'is_active' in data:
+        user.is_active = data.get('is_active')
+    
+    if 'password' in data:
+        user.set_password(data.get('password'))
+    
+    try:
+        db.session.commit()
+        print(f'[DEBUG] User updated successfully: {user_id}')
+        return success_response(user.to_dict(), 'User updated successfully')
+    except Exception as e:
+        print(f'[DEBUG] Error updating user: {str(e)}')
         db.session.rollback()
         return error_response(str(e), 500)

@@ -122,7 +122,7 @@ class Module(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     code = db.Column(db.String(20), unique=True)
     filier_id = db.Column(db.Integer, db.ForeignKey('filieres.id'))
-    credits = db.Column(db.Integer, default=3)
+    professor_id = db.Column(db.Integer, db.ForeignKey('professors.id'))
     hours = db.Column(db.Integer, default=45)
     description = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
@@ -130,6 +130,7 @@ class Module(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     filier = db.relationship('Filier', back_populates='modules')
+    professor = db.relationship('Professor', back_populates='modules')
     exams = db.relationship('Exam', back_populates='module_obj', cascade='all, delete-orphan')
     
     def to_dict(self):
@@ -139,7 +140,8 @@ class Module(db.Model):
             'code': self.code,
             'filier_id': self.filier_id,
             'filier_name': self.filier.name if self.filier else None,
-            'credits': self.credits,
+            'professor_id': self.professor_id,
+            'professor_name': self.professor.user.full_name if self.professor and self.professor.user else None,
             'hours': self.hours,
             'description': self.description,
             'is_active': self.is_active,
@@ -176,6 +178,7 @@ class Professor(db.Model):
     incidents = db.relationship('Incident', back_populates='professor', cascade='all, delete-orphan')
     history_records = db.relationship('AssignmentHistory', back_populates='professor', cascade='all, delete-orphan')
     filieres = db.relationship('Filier', secondary='professor_filier', back_populates='professors')
+    modules = db.relationship('Module', back_populates='professor', cascade='all, delete-orphan')
     
     @property
     def quota_status(self):
@@ -202,7 +205,8 @@ class Professor(db.Model):
             'quota_percentage': self.quota_percentage,
             'academic_title': self.academic_title,
             'is_quota_full': self.is_quota_full,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat(),
+            'user': self.user.to_dict() if self.user else None
         }
 
 

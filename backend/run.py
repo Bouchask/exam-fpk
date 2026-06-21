@@ -9,7 +9,7 @@ from app import app
 if __name__ == '__main__':
     # Get configuration from environment
     host = os.getenv('FLASK_HOST', '0.0.0.0')
-    port = int(os.getenv('FLASK_PORT', 5000))
+    port = int(os.getenv('FLASK_PORT', 5006))  # Changed from 5000 to 5006 to match frontend
     debug = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
     
     print("=" * 60)

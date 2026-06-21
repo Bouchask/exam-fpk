@@ -1,17 +1,33 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, MoreVertical, Save, RefreshCcw, Edit, BookOpen, Layers } from "lucide-react";
+import { Plus, MoreVertical, Save, RefreshCcw, Edit, BookOpen, Layers, Trash2, X } from "lucide-react";
 import { DataTable } from "../components/ui/DataTable";
 import { Modal } from "../components/ui/Modal";
 import { cn } from "../utils/cn";
-import { filierService, moduleService, departmentService } from "../services";
-import type { Filier, Module, Department } from "../types";
+import { filierService, moduleService, departmentService, professorService } from "../services";
+import type { Filier, Module, Department, Professor } from "../types";
+import { useAuth } from "../contexts/AuthContext";
 
 export const FilierModuleManagement = () => {
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<"filieres" | "modules">("filieres");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Data state
+  const [filieres, setFilieres] = useState<Filier[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [professors, setProfessors] = useState<Professor[]>([]);
+  const [selectedFilier, setSelectedFilier] = useState<Filier | null>(null);
+  const [defaultDepartmentId, setDefaultDepartmentId] = useState<number>(0);
+  
+  // Edit/Delete state
+  const [editingFilier, setEditingFilier] = useState<Filier | null>(null);
+  const [editingModule, setEditingModule] = useState<Module | null>(null);
+  const [deleteItem, setDeleteItem] = useState<{ type: 'filier' | 'module'; id: number; name: string } | null>(null);
 
   // Form state
   const [filierForm, setFilierForm] = useState({
@@ -26,17 +42,11 @@ export const FilierModuleManagement = () => {
     name: '',
     code: '',
     filier_id: 0,
-    credits: 3,
+    professor_id: 0,
     hours: 45,
     description: '',
     is_active: true,
   });
-
-  // Data state
-  const [filieres, setFilieres] = useState<Filier[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedFilier, setSelectedFilier] = useState<Filier | null>(null);
 
   // Fetch data
   const fetchFilieres = useCallback(async () => {
@@ -72,9 +82,25 @@ export const FilierModuleManagement = () => {
       const response = await departmentService.getAll(1, 50);
       if (response.success && response.data) {
         setDepartments(response.data);
+        // Set Computer Science as default department
+        const csDept = response.data.find((d: any) => d.name === 'Computer Science' || d.name === 'COMPUTER SCIENCE');
+        if (csDept) {
+          setDefaultDepartmentId(csDept.id);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch departments:', err);
+    }
+  }, []);
+
+  const fetchProfessors = useCallback(async () => {
+    try {
+      const response = await professorService.getAll(1, 50);
+      if (response.success && response.data) {
+        setProfessors(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch professors:', err);
     }
   }, []);
 
@@ -83,7 +109,17 @@ export const FilierModuleManagement = () => {
     fetchFilieres();
     fetchModules();
     fetchDepartments();
-  }, [fetchFilieres, fetchModules, fetchDepartments]);
+    fetchProfessors();
+  }, [fetchFilieres, fetchModules, fetchDepartments, fetchProfessors]);
+
+  // Update form when default department changes
+  useEffect(() => {
+    if (defaultDepartmentId > 0 && !selectedFilier) {
+      setFilierForm(prev => (
+        prev.department_id === 0 ? { ...prev, department_id: defaultDepartmentId } : prev
+      ));
+    }
+  }, [defaultDepartmentId, selectedFilier]);
 
   // Form handlers
   const handleFilierSubmit = async () => {
@@ -100,23 +136,44 @@ export const FilierModuleManagement = () => {
       setIsLoading(true);
       setError(null);
 
-      const response = await filierService.create({
-        name: filierForm.name,
-        code: filierForm.code,
-        department_id: filierForm.department_id,
-        max_modules: filierForm.max_modules,
-        description: filierForm.description,
-        is_active: filierForm.is_active,
-      });
+      if (editingFilier) {
+        // Update existing filier
+        const response = await filierService.update(editingFilier.id, {
+          name: filierForm.name,
+          code: filierForm.code,
+          department_id: filierForm.department_id,
+          max_modules: filierForm.max_modules,
+          description: filierForm.description,
+          is_active: filierForm.is_active,
+        });
 
-      if (response.success) {
-        setSuccess('Filier created successfully!');
-        setFilierForm({ name: '', code: '', department_id: 0, max_modules: 7, description: '', is_active: true });
-        setIsModalOpen(false);
-        fetchFilieres();
+        if (response.success) {
+          setSuccess('Filier updated successfully!');
+          setFilierForm({ name: '', code: '', department_id: defaultDepartmentId, max_modules: 7, description: '', is_active: true });
+          setEditingFilier(null);
+          setIsModalOpen(false);
+          fetchFilieres();
+        }
+      } else {
+        // Create new filier
+        const response = await filierService.create({
+          name: filierForm.name,
+          code: filierForm.code,
+          department_id: filierForm.department_id,
+          max_modules: filierForm.max_modules,
+          description: filierForm.description,
+          is_active: filierForm.is_active,
+        });
+
+        if (response.success) {
+          setSuccess('Filier created successfully!');
+          setFilierForm({ name: '', code: '', department_id: defaultDepartmentId, max_modules: 7, description: '', is_active: true });
+          setIsModalOpen(false);
+          fetchFilieres();
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create filier');
+      setError(err instanceof Error ? err.message : editingFilier ? 'Failed to update filier' : 'Failed to create filier');
     } finally {
       setIsLoading(false);
     }
@@ -131,40 +188,77 @@ export const FilierModuleManagement = () => {
       setError('Please select a filier');
       return;
     }
+    if (!moduleForm.professor_id) {
+      setError('Please select a professor');
+      return;
+    }
 
     try {
       setIsLoading(true);
       setError(null);
 
-      // Check if filier has reached max modules
-      const filier = filieres.find(f => f.id === moduleForm.filier_id);
-      if (filier) {
-        const moduleCount = modules.filter(m => m.filier_id === moduleForm.filier_id).length;
-        if (moduleCount >= (filier.max_modules || 7)) {
-          setError(`Filier has reached maximum of ${filier.max_modules || 7} modules`);
+      // For create only (not update), check limits
+      if (!editingModule) {
+        // Check if filier has reached max modules
+        const filier = filieres.find(f => f.id === moduleForm.filier_id);
+        if (filier) {
+          const moduleCount = modules.filter(m => m.filier_id === moduleForm.filier_id).length;
+          if (moduleCount >= (filier.max_modules || 7)) {
+            setError(`Filier has reached maximum of ${filier.max_modules || 7} modules`);
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Check if professor has reached max 3 modules
+        const professorModules = modules.filter(m => m.professor_id === moduleForm.professor_id).length;
+        if (professorModules >= 3) {
+          setError('Professor has reached maximum of 3 modules');
           setIsLoading(false);
           return;
         }
       }
 
-      const response = await moduleService.create({
-        name: moduleForm.name,
-        code: moduleForm.code,
-        filier_id: moduleForm.filier_id,
-        credits: moduleForm.credits,
-        hours: moduleForm.hours,
-        description: moduleForm.description,
-        is_active: moduleForm.is_active,
-      });
+      if (editingModule) {
+        // Update existing module
+        const response = await moduleService.update(editingModule.id, {
+          name: moduleForm.name,
+          code: moduleForm.code,
+          filier_id: moduleForm.filier_id,
+          professor_id: moduleForm.professor_id,
+          hours: moduleForm.hours,
+          description: moduleForm.description,
+          is_active: moduleForm.is_active,
+        });
 
-      if (response.success) {
-        setSuccess('Module created successfully!');
-        setModuleForm({ name: '', code: '', filier_id: 0, credits: 3, hours: 45, description: '', is_active: true });
-        setIsModalOpen(false);
-        fetchModules();
+        if (response.success) {
+          setSuccess('Module updated successfully!');
+          setModuleForm({ name: '', code: '', filier_id: 0, professor_id: 0, hours: 45, description: '', is_active: true });
+          setEditingModule(null);
+          setIsModalOpen(false);
+          fetchModules();
+        }
+      } else {
+        // Create new module
+        const response = await moduleService.create({
+          name: moduleForm.name,
+          code: moduleForm.code,
+          filier_id: moduleForm.filier_id,
+          professor_id: moduleForm.professor_id,
+          hours: moduleForm.hours,
+          description: moduleForm.description,
+          is_active: moduleForm.is_active,
+        });
+
+        if (response.success) {
+          setSuccess('Module created successfully!');
+          setModuleForm({ name: '', code: '', filier_id: 0, professor_id: 0, hours: 45, description: '', is_active: true });
+          setIsModalOpen(false);
+          fetchModules();
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create module');
+      setError(err instanceof Error ? err.message : editingModule ? 'Failed to update module' : 'Failed to create module');
     } finally {
       setIsLoading(false);
     }
@@ -207,9 +301,16 @@ export const FilierModuleManagement = () => {
           >
             <BookOpen className="w-4 h-4" />
           </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleDeleteFilier(f); }}
+            className="p-1 text-stone-500 hover:text-red-500 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ), 
-      className: "text-right w-20"
+      className: "text-right w-24"
     }
   ];
 
@@ -222,9 +323,9 @@ export const FilierModuleManagement = () => {
       className: "text-[10px] font-bold"
     },
     { 
-      header: "CREDITS", 
-      accessor: (m: Module) => <span className="font-bold text-app-primary">{m.credits || 3}</span>,
-      className: "text-center"
+      header: "PROFESSOR", 
+      accessor: (m: Module) => m.professor_name || 'N/A',
+      className: "text-[10px] font-bold"
     },
     { 
       header: "HOURS", 
@@ -238,13 +339,31 @@ export const FilierModuleManagement = () => {
     },
     { 
       header: "ACTION", 
-      accessor: () => <button className="p-1 hover:text-app-primary"><MoreVertical className="w-4 h-4" /></button>, 
-      className: "text-right w-12"
+      accessor: (m: Module) => (
+        <div className="flex gap-2 justify-end">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleEditModule(m); }}
+            className="p-1 text-stone-500 hover:text-app-primary transition-colors"
+            title="Edit"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleDeleteModule(m); }}
+            className="p-1 text-stone-500 hover:text-red-500 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ), 
+      className: "text-right w-20"
     }
   ];
 
-  // Edit handler
+  // Edit handler for filier
   const handleEditFilier = (filier: Filier) => {
+    setEditingFilier(filier);
     setFilierForm({
       name: filier.name,
       code: filier.code || '',
@@ -254,6 +373,65 @@ export const FilierModuleManagement = () => {
       is_active: filier.is_active || true,
     });
     setIsModalOpen(true);
+  };
+
+  // Edit handler for module
+  const handleEditModule = (module: Module) => {
+    setEditingModule(module);
+    setModuleForm({
+      name: module.name,
+      code: module.code || '',
+      filier_id: module.filier_id || 0,
+      professor_id: module.professor_id || 0,
+      hours: module.hours || 45,
+      description: module.description || '',
+      is_active: module.is_active || true,
+    });
+    setIsModalOpen(true);
+  };
+
+  // Delete handlers
+  const handleDeleteFilier = (filier: Filier) => {
+    setDeleteItem({ type: 'filier', id: filier.id, name: filier.name });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteModule = (module: Module) => {
+    setDeleteItem({ type: 'module', id: module.id, name: module.name });
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteItem) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (deleteItem.type === 'filier') {
+        const response = await filierService.delete(deleteItem.id);
+        if (response.success) {
+          setSuccess(`Filier "${deleteItem.name}" deleted successfully!`);
+          fetchFilieres();
+          // If we were viewing this filier's modules, reset selection
+          if (selectedFilier?.id === deleteItem.id) {
+            setSelectedFilier(null);
+          }
+        }
+      } else {
+        const response = await moduleService.delete(deleteItem.id);
+        if (response.success) {
+          setSuccess(`Module "${deleteItem.name}" deleted successfully!`);
+          fetchModules();
+        }
+      }
+      setIsDeleteModalOpen(false);
+      setDeleteItem(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete item');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Filter modules by filier
@@ -340,7 +518,7 @@ export const FilierModuleManagement = () => {
             disabled={isLoading}
             className="w-full bg-app-fg text-white py-4 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all disabled:opacity-50"
           >
-            {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> SAVE FILIER</>}
+            {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingFilier ? 'UPDATE FILIER' : 'SAVE FILIER'}</>}
           </button>
         </form>
       );
@@ -386,29 +564,32 @@ export const FilierModuleManagement = () => {
             ))}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Credits</label>
-            <input 
-              type="number" 
-              value={moduleForm.credits}
-              onChange={(e) => setModuleForm({...moduleForm, credits: parseInt(e.target.value) || 3})}
-              min="1"
-              max="10"
-              className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Hours</label>
-            <input 
-              type="number" 
-              value={moduleForm.hours}
-              onChange={(e) => setModuleForm({...moduleForm, hours: parseInt(e.target.value) || 45})}
-              min="15"
-              max="200"
-              className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-            />
-          </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Professor *</label>
+          <select 
+            value={moduleForm.professor_id}
+            onChange={(e) => setModuleForm({...moduleForm, professor_id: parseInt(e.target.value)})}
+            className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+            required
+          >
+            <option value="0">Select Professor</option>
+            {professors.map(prof => (
+              <option key={prof.id} value={prof.id}>
+                {prof.user?.full_name || prof.name} - {prof.user?.institutional_grade || 'PR'}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Hours</label>
+          <input 
+            type="number" 
+            value={moduleForm.hours}
+            onChange={(e) => setModuleForm({...moduleForm, hours: parseInt(e.target.value) || 45})}
+            min="15"
+            max="200"
+            className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
+          />
         </div>
         <div className="space-y-1">
           <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Description</label>
@@ -436,7 +617,7 @@ export const FilierModuleManagement = () => {
           disabled={isLoading}
           className="w-full bg-app-fg text-white py-4 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all disabled:opacity-50"
         >
-          {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> SAVE MODULE</>}
+          {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingModule ? 'UPDATE MODULE' : 'SAVE MODULE'}</>}
         </button>
       </form>
     );
@@ -452,6 +633,30 @@ export const FilierModuleManagement = () => {
         <button 
           onClick={() => {
             setActiveSubTab(activeSubTab === 'filieres' ? 'filieres' : 'modules');
+            // Reset form with defaults for new entry
+            if (activeSubTab === 'filieres') {
+              setFilierForm({
+                name: '',
+                code: '',
+                department_id: defaultDepartmentId,
+                max_modules: 7,
+                description: '',
+                is_active: true,
+              });
+              setEditingFilier(null);
+              setSelectedFilier(null);
+            } else {
+              setModuleForm({
+                name: '',
+                code: '',
+                filier_id: 0,
+                professor_id: 0,
+                hours: 45,
+                description: '',
+                is_active: true,
+              });
+              setEditingModule(null);
+            }
             setIsModalOpen(true);
           }}
           className="flex items-center justify-center gap-3 bg-app-primary text-white px-8 py-4 rounded-none font-black uppercase tracking-[0.2em] text-xs hover:bg-app-fg transition-all"
@@ -511,15 +716,17 @@ export const FilierModuleManagement = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal for Add/Edit */}
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => {
           setIsModalOpen(false);
           setError(null);
           setSuccess(null);
+          setEditingFilier(null);
+          setEditingModule(null);
         }}
-        title={`Add ${activeSubTab === 'filieres' ? 'Filier' : 'Module'}`}
+        title={`${editingFilier || editingModule ? 'Edit' : 'Add'} ${activeSubTab === 'filieres' ? 'Filier' : 'Module'}`}
       >
         {renderForm()}
         
@@ -532,6 +739,55 @@ export const FilierModuleManagement = () => {
         {success && (
           <div className="mt-4 p-3 bg-green-100 border border-green-300 text-green-800 text-xs font-bold uppercase tracking-wider">
             {success}
+          </div>
+        )}
+      </Modal>
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDeleteItem(null);
+          setError(null);
+        }}
+        title={`Delete ${deleteItem?.type === 'filier' ? 'Filier' : 'Module'}`}
+      >
+        {deleteItem && (
+          <div className="space-y-6">
+            <p className="text-stone-600 text-sm">
+              Are you sure you want to delete <span className="font-bold text-app-fg">{deleteItem.name}</span>?
+              {deleteItem.type === 'filier' && 
+                <span className="block mt-2 text-xs text-red-600">
+                  WARNING: This will also delete all modules associated with this filier.
+                </span>
+              }
+            </p>
+            <div className="flex gap-4 justify-end">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDeleteItem(null);
+                }}
+                disabled={isLoading}
+                className="px-6 py-3 bg-stone-100 text-stone-600 font-bold uppercase tracking-wider text-xs hover:bg-stone-200 transition-all disabled:opacity-50"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isLoading}
+                className="px-6 py-3 bg-red-600 text-white font-bold uppercase tracking-wider text-xs hover:bg-red-700 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <><Trash2 className="w-4 h-4" /> DELETE</>}
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 border border-red-300 text-red-800 text-xs font-bold uppercase tracking-wider">
+            {error}
           </div>
         )}
       </Modal>
