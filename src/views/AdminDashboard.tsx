@@ -91,7 +91,14 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState<"overview" | "professors" | "exams" | "salles" | "departments" | "filieres" | "modules">(getCurrentTab());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGuardsModalOpen, setIsGuardsModalOpen] = useState(false);
-  const [selectedExamGuards, setSelectedExamGuards] = useState<{id: number; module: string; guards: string[]; guardCount: number} | null>(null);
+  const [selectedExamGuards, setSelectedExamGuards] = useState<{
+    id: number; 
+    module: string; 
+    guards: Array<{name: string; department: string; id: number}>;
+    guardCount: number;
+    associatedProfessor: {name: string; id: number | null};
+    moduleProfessorDept: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -233,22 +240,53 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       setIsLoading(true);
       const response = await examService.getAll();
       if (response.success && response.data) {
+        // Fetch modules to get associated professor
+        const modulesResponse = await moduleService.getAll();
+        const allModules = modulesResponse.success && modulesResponse.data ? modulesResponse.data : [];
+        
+        // Fetch all professors for department info
+        const professorsResponse = await professorService.getAll();
+        const allProfessors = professorsResponse.success && professorsResponse.data ? professorsResponse.data : [];
+        
         // Fetch assignments for each exam to get professor guards
         const examsWithGuards = await Promise.all(response.data.map(async (e) => {
           try {
             const assignmentsResponse = await examService.getAssignments(e.id);
-            const professors = assignmentsResponse.success && assignmentsResponse.data 
-              ? assignmentsResponse.data.map((a: any) => a.professor || a.professor_name || 'Unknown')
+            const assignments = assignmentsResponse.success && assignmentsResponse.data 
+              ? assignmentsResponse.data 
               : [];
+            
+            // Get guards with department info
+            const guards = assignments.map((a: any) => ({
+              name: a.professor || a.professor_name || 'Unknown',
+              department: a.professor_department || 'Unknown',
+              id: a.professor_id
+            }));
+            
+            // Find module info
+            const moduleInfo = allModules.find((m: any) => m.name === e.module || m.id === e.module_id);
+            const associatedProfessor = moduleInfo ? {
+              name: moduleInfo.professor_name || 'Not Assigned',
+              id: moduleInfo.professor_id
+            } : { name: 'Not Assigned', id: null };
+            
+            // Find professor department
+            const profDept = moduleInfo?.professor_id 
+              ? allProfessors.find((p: any) => p.id === moduleInfo.professor_id)?.department 
+              : null;
+            
             return {
               id: e.id,
               module: e.module,
+              module_id: e.module_id,
               date: e.date,
               time: `${e.start_time} - ${e.end_time}`,
               type: e.exam_type,
               room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
-              guards: professors,
-              guardCount: professors.length
+              guards: guards,
+              guardCount: guards.length,
+              associatedProfessor: associatedProfessor,
+              moduleProfessorDept: profDept || 'Unknown'
             };
           } catch (err) {
             console.error(`Failed to fetch assignments for exam ${e.id}:`, err);
@@ -260,7 +298,9 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
               type: e.exam_type,
               room: typeof e.salle === 'string' ? e.salle : e.salle?.name || 'Unknown',
               guards: [],
-              guardCount: 0
+              guardCount: 0,
+              associatedProfessor: { name: 'Not Assigned', id: null },
+              moduleProfessorDept: 'Unknown'
             };
           }
         }));
@@ -1064,7 +1104,9 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
       id: exam.id,
       module: exam.module,
       guards: exam.guards || [],
-      guardCount: exam.guardCount || 0
+      guardCount: exam.guardCount || 0,
+      associatedProfessor: exam.associatedProfessor || { name: 'Not Assigned', id: null },
+      moduleProfessorDept: exam.moduleProfessorDept || 'Unknown'
     });
     setIsGuardsModalOpen(true);
   };
@@ -1353,7 +1395,7 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
                 {e.guardCount} Prof{e.guardCount > 1 ? 's' : ''}
               </span>
               <button 
-                onClick={(e) => { e.stopPropagation(); showExamGuards(exam); }}
+                onClick={(ev) => { ev.stopPropagation(); showExamGuards(e); }}
                 className="p-1 text-stone-500 hover:text-app-primary transition-colors"
                 title="View Guards"
               >
@@ -2304,26 +2346,53 @@ export const AdminDashboard = ({ forcedTab }: AdminDashboardProps) => {
         title={`Guards for ${selectedExamGuards?.module || 'Exam'}`}
       >
         <div className="p-4">
-          {selectedExamGuards && selectedExamGuards.guardCount > 0 ? (
+          {selectedExamGuards ? (
             <>
-              <p className="text-sm font-medium text-stone-600 mb-4">
-                {selectedExamGuards.guardCount} Professor{selectedExamGuards.guardCount > 1 ? 's' : ''} assigned as guards:
-              </p>
-              <div className="space-y-3">
-                {selectedExamGuards.guards.map((professor, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded"
-                  >
-                    <span className="text-sm font-bold text-app-fg uppercase tracking-wider">{professor}</span>
-                    <span className="text-[10px] text-stone-400 uppercase tracking-widest">Guard #{index + 1}</span>
+              {/* Module Associated Professor */}
+              <div className="mb-6 p-4 bg-stone-50 border border-stone-200 rounded">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">Module Professor (Associé)</h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
+                    {selectedExamGuards.associatedProfessor.name}
+                  </span>
+                  <span className="text-[10px] text-stone-400 uppercase tracking-widest">
+                    {selectedExamGuards.moduleProfessorDept}
+                  </span>
+                </div>
+              </div>
+
+              {/* Guards List */}
+              <div className="mb-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">
+                  Exam Guards ({selectedExamGuards.guardCount})
+                </h4>
+                {selectedExamGuards.guardCount > 0 ? (
+                  <div className="space-y-3">
+                    {selectedExamGuards.guards.map((guard, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-white border border-stone-100 rounded"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-app-fg uppercase tracking-wider">
+                            {guard.name}
+                          </span>
+                          <span className="text-[10px] text-stone-400 uppercase tracking-widest">
+                            Dept: {guard.department}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
+                          Guard #{index + 1}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <p className="text-sm text-stone-500 text-center py-4">No professors assigned as guards for this exam.</p>
+                )}
               </div>
             </>
-          ) : (
-            <p className="text-sm text-stone-500 text-center py-4">No professors assigned as guards for this exam.</p>
-          )}
+          ) : null}
           <div className="flex justify-end mt-6">
             <button
               onClick={() => setIsGuardsModalOpen(false)}
