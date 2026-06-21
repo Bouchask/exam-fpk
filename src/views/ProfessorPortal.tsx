@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, MapPin, BookOpen, ArrowRight, Download, History, Settings, Save, AlertCircle, FileSignature, Mail, Lock, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { Clock, MapPin, BookOpen, Settings, Save, Mail, Lock, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { cn } from "../utils/cn";
 import { Modal } from "../components/ui/Modal";
 import { professorService } from "../services/professorService";
 import { moduleService } from "../services/moduleService";
-import { examService } from "../services/examService";
 import { assignmentService } from "../services/assignmentService";
 import { authService } from "../services/authService";
 import type { Module, Exam, Assignment, Professor } from "../types";
@@ -23,10 +22,7 @@ interface ProfessorDashboardData {
 }
 
 export const ProfessorPortal = () => {
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [expandedModule, setExpandedModule] = useState<number | null>(null);
   const [dashboardData, setDashboardData] = useState<ProfessorDashboardData>({
     professor: null,
@@ -134,7 +130,7 @@ export const ProfessorPortal = () => {
       }
       
       // Get assignments where this professor is a guard
-      const assignmentsResponse = await assignmentService.getByProfessor(currentUser.id);
+      const assignmentsResponse = await assignmentService.getByProfessor(profId);
       const guardAssignments: Assignment[] = assignmentsResponse.success && assignmentsResponse.data
         ? (Array.isArray(assignmentsResponse.data) ? assignmentsResponse.data : (assignmentsResponse.data as any).data || []) 
         : [];
@@ -164,11 +160,6 @@ export const ProfessorPortal = () => {
   useEffect(() => {
     fetchProfessorData();
   }, [fetchProfessorData]);
-
-  const handleOpenIncident = (exam: Exam) => {
-    setSelectedExam(exam);
-    setIsIncidentModalOpen(true);
-  };
 
   const toggleModuleExpand = (moduleId: number) => {
     setExpandedModule(prev => prev === moduleId ? null : moduleId);
@@ -535,11 +526,6 @@ export const ProfessorPortal = () => {
                               {assignment.status}
                             </span>
                           </div>
-                          {exam && (
-                            <button onClick={() => handleOpenIncident(exam)} className="px-6 py-3 border-2 border-app-fg text-app-fg font-black uppercase tracking-widest text-[10px] hover:bg-app-fg hover:text-white transition-all">
-                              LOGS
-                            </button>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -554,85 +540,7 @@ export const ProfessorPortal = () => {
             </div>
           </div>
         </div>
-
-        {/* Right Column - Sidebar */}
-        <div className="space-y-10">
-          <div className="bg-app-fg p-10 text-white">
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-8 border-b border-stone-800 pb-4">Faculty Bulletins</h4>
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-[10px] font-black text-app-primary uppercase tracking-widest">May 11, 2026</p>
-                <p className="text-xs font-bold leading-relaxed text-stone-300">New invigilation guidelines for Final Exams published. Please review the updated protocol.</p>
-                <button className="flex items-center gap-2 text-[9px] font-black text-white hover:text-app-primary transition-colors uppercase tracking-widest">
-                  Read More <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-6">Service Portal</h4>
-            <button className="w-full flex items-center justify-between p-6 bg-white border border-stone-200 hover:border-app-primary transition-all group">
-              <div className="flex items-center gap-4">
-                <Download className="w-5 h-5 text-stone-400 group-hover:text-app-primary" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Download Official PDF</span>
-              </div>
-              <ArrowRight className="w-4 h-4 text-stone-200" />
-            </button>
-            <button className="w-full flex items-center justify-between p-6 bg-white border border-stone-200 hover:border-app-primary transition-all group">
-              <div className="flex items-center gap-4">
-                <History className="w-5 h-5 text-stone-400 group-hover:text-app-primary" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Past Assignments</span>
-              </div>
-              <ArrowRight className="w-4 h-4 text-stone-200" />
-            </button>
-          </div>
-        </div>
       </div>
-
-      {/* Profile Settings Modal */}
-      <Modal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Faculty Profile Settings">
-        <form className="space-y-6">
-          <div className="grid grid-cols-1 gap-6">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Full Academic Name</label>
-              <input 
-                type="text" 
-                defaultValue={user ? `${professor?.academic_title || user.institutional_grade || 'DR.'} ${user.full_name || `${user.first_name} ${user.last_name}`}` : ''} 
-                className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all" 
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Institutional Grade</label>
-                <select className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all">
-                  <option>PR (PROFESSEUR)</option>
-                  <option>PES (ENSEIGNANT)</option>
-                  <option>PH (HABILITÉ)</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Department</label>
-                <input 
-                  type="text" 
-                  defaultValue={professor?.department || 'Computer Science'} 
-                  className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Digital Signature Reference</label>
-              <div className="border-2 border-dashed border-stone-200 p-8 flex flex-col items-center bg-stone-50">
-                <FileSignature className="w-8 h-8 text-stone-300 mb-2" />
-                <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest text-center">Upload signature for official reports</p>
-              </div>
-            </div>
-          </div>
-          <button type="button" className="w-full bg-app-fg text-white py-5 font-black uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-3 hover:bg-app-primary transition-all">
-            <Save className="w-4 h-4" /> UPDATE PROFILE
-          </button>
-        </form>
-      </Modal>
 
       {/* Settings Modal - Email & Password */}
       <Modal isOpen={isSettingsModalOpen} onClose={() => {
@@ -771,35 +679,6 @@ export const ProfessorPortal = () => {
             </form>
           </div>
         </div>
-      </Modal>
-
-      {/* Incident Log Modal */}
-      <Modal isOpen={isIncidentModalOpen} onClose={() => setIsIncidentModalOpen(false)} title="Duty Report / Incident Log">
-        <form className="space-y-6">
-          {selectedExam && (
-            <div className="p-4 bg-stone-900 text-white mb-6">
-              <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-app-primary">Active Context</p>
-              <p className="text-xs font-bold uppercase tracking-tight">{selectedExam.module} • {typeof selectedExam.salle === 'string' ? selectedExam.salle : selectedExam.salle?.name || 'Unknown'}</p>
-            </div>
-          )}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Formal Explanation</label>
-            <textarea 
-              rows={4} 
-              placeholder="PROVIDE DETAILED LOG FOR SCOLARITÉ REVIEW..." 
-              className="w-full bg-stone-50 border border-stone-200 p-4 text-xs font-bold uppercase focus:outline-none focus:border-app-primary transition-all resize-none"
-            />
-          </div>
-          <div className="p-4 bg-stone-100 flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 text-app-primary shrink-0" />
-            <p className="text-[9px] font-bold text-stone-500 uppercase leading-relaxed">
-              Reporting an incident triggers a manual review by the administration.
-            </p>
-          </div>
-          <button type="button" className="w-full bg-app-primary text-white py-5 font-black uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-3 hover:bg-app-fg transition-all">
-            <Save className="w-4 h-4" /> SUBMIT LOG
-          </button>
-        </form>
       </Modal>
     </div>
   );

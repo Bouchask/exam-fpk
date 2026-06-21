@@ -4,8 +4,6 @@ import { AdminDashboard } from "./views/AdminDashboard";
 import { AssignmentEngine } from "./views/AssignmentEngine";
 import { FilierModuleManagement } from "./views/FilierModuleManagement";
 import { ProfessorPortal } from "./views/ProfessorPortal";
-import { ProfessorHistory } from "./views/ProfessorHistory";
-import { ProfessorIncidents } from "./views/ProfessorIncidents";
 import { Login } from "./views/Login";
 import { useAuth } from "./contexts/AuthContext";
 import type { User } from "./types";
@@ -81,10 +79,6 @@ function App() {
       // PROFESSOR VIEWS
       case "portal":
         return <ProfessorPortal />;
-      case "history":
-        return <ProfessorHistory />;
-      case "incidents":
-        return <ProfessorIncidents />;
       
       default:
         return userRole === "admin" ? <AdminDashboard forcedTab="overview" /> : <ProfessorPortal />;
@@ -112,8 +106,6 @@ function App() {
           ) : (
             <>
               <option value="portal">DUTY PORTAL</option>
-              <option value="history">ASSIGNMENT HISTORY</option>
-              <option value="incidents">INCIDENT LOGS</option>
             </>
           )}
         </select>
