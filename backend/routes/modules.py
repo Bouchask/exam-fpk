@@ -222,16 +222,8 @@ def get_modules_by_filier(filier_id):
 @modules_bp.route('/professor/<int:professor_id>', methods=['GET'])
 def get_modules_by_professor(professor_id):
     """Get all modules taught by a professor"""
-    # Get all filieres the professor is assigned to
-    from models import ProfessorFilier
-    
-    professor = Filier.query.join(
-        ProfessorFilier, ProfessorFilier.filier_id == Filier.id
-    ).filter(ProfessorFilier.professor_id == professor_id).all()
-    
-    # Get all modules from those filieres
-    filier_ids = [f.id for f in professor]
-    modules = Module.query.filter(Module.filier_id.in_(filier_ids)).order_by(Module.name.asc()).all()
+    # Get modules where this professor is the direct professor
+    modules = Module.query.filter_by(professor_id=professor_id).order_by(Module.name.asc()).all()
     
     modules_list = [m.to_dict() for m in modules]
     
