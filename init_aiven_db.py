@@ -9,9 +9,9 @@ from sqlalchemy import create_engine, text
 from werkzeug.security import generate_password_hash
 
 # Aiven.io Database Configuration
-AIVEN_DB_URL = os.getenv('DATABASE_URL', 
-    'postgres://[REDACTED]@exam-fpk-yahyabouaachak-c539.b.aivencloud.com:21532/defaultdb?sslmode=require'
-)
+# Please set DATABASE_URL environment variable before running
+# Example: export DATABASE_URL="postgres://username:password@host:port/database?sslmode=require"
+AIVEN_DB_URL = os.getenv('DATABASE_URL')
 
 
 def create_database():

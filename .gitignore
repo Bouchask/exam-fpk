@@ -12,6 +12,47 @@ dist
 dist-ssr
 *.local
 
+# Environment files (contain secrets)
+.env*
+!.env.example
+.env.aiven
+
+# Database configuration files
+docker-compose.yml
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+distribute-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
 # Editor folders
 .vscode/*
 !.vscode/extensions.json
