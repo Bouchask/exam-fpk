@@ -17,8 +17,16 @@ def create_app(config_name='default'):
     # Disable strict slashes to avoid 308 redirects on CORS preflight
     app.url_map.strict_slashes = False
     
-    # Enable CORS
-    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+    # Enable CORS for Vercel deployment
+    # Allow requests from the frontend domain and localhost for development
+    CORS(app, resources={r"/*": {"origins": [
+        'https://exam-fpk.vercel.app',
+        'https://exam-joz3wp2rw-yahya-bocuhals-projects.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:5006',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:5006'
+    ]}}, supports_credentials=True)
     
     # Initialize JWT
     jwt = JWTManager(app)
@@ -163,6 +171,8 @@ def create_app(config_name='default'):
 app = create_app()
 
 
+# For Vercel serverless functions, we need to handle the function invocation
+# Vercel expects the app to be callable
 if __name__ == '__main__':
     # Run the application
     port = int(os.getenv('PORT', 5006))

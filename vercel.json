@@ -1,7 +1,31 @@
 {
   "version": 2,
-  "framework": "vite",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "backend/app.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxDuration": 30
+      }
+    }
+  ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/app.py",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
+    },
     {
       "handle": "filesystem"
     },
@@ -9,16 +33,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "experimentalServices": {
-    "frontend": {
-      "routePrefix": "/",
-      "framework": "vite"
-    },
-    "backend": {
-      "root": "backend",
-      "entrypoint": "app:app",
-      "routePrefix": "/_/backend"
-    }
-  }
+  ]
 }

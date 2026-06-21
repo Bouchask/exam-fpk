@@ -44,7 +44,7 @@ def role_required(*roles):
             user_role = claims.get('role')
             
             if user_role not in roles:
-                return jsonify({'message': f'Requires one of: {', '.join(roles)}'}), 403
+                return jsonify({'message': f'Requires one of: {", ".join(roles)}'}), 403
             
             return fn(*args, **kwargs)
         return decorator

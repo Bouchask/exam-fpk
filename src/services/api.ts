@@ -4,8 +4,9 @@ import axios from 'axios';
 import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // API Base URL - can be configured via environment variable
-// Default to port 5006 which is where the backend runs (see backend/app.py line 155)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5006/api';
+// For Vercel deployment, use relative path so API calls go to the same domain
+// In development, fallback to localhost:5006
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Flag to check if backend is available
 let backendAvailable = true;
