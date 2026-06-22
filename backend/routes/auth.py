@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import check_password_hash
 from models import db, User, Professor, Department
 from utils.helpers import success_response, error_response, validate_email
@@ -28,10 +28,13 @@ def login():
     if not user.is_active:
         return error_response('Account is disabled', 403)
     
-    # Create JWT token with role in claims
+    # Create JWT tokens with role in claims
     access_token = create_access_token(
         identity=str(user.id),
         additional_claims={'role': user.role, 'username': user.username, 'email': user.email}
+    )
+    refresh_token = create_refresh_token(
+        identity=str(user.id)
     )
     
     # Update professor quota if exists
@@ -47,6 +50,7 @@ def login():
     
     return success_response({
         'access_token': access_token,
+        'refresh_token': refresh_token,
         'user': {
             'id': user.id,
             'username': user.username,

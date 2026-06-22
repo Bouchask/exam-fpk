@@ -67,6 +67,11 @@ export const authService = {
         localStorage.setItem('token', response.data.data.access_token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
         
+        // Store refresh token if available
+        if (response.data.data.refresh_token) {
+          localStorage.setItem('refresh_token', response.data.data.refresh_token);
+        }
+        
         // Store professor quota if available
         if (response.data.data.professor_quota) {
           localStorage.setItem(
