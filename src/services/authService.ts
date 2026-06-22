@@ -55,7 +55,7 @@ export const authService = {
           professor_quota: mockQuota,
         }, 'Login successful') as LoginResponse;
       } else {
-        throw new Error('Invalid credentials. Use admin/admin or prof/prof');
+        throw new Error('Invalid credentials');
       }
     }
     
@@ -107,7 +107,7 @@ export const authService = {
           professor_quota: mockQuota,
         }, 'Login successful (mock mode)') as LoginResponse;
       } else {
-        throw new Error('Invalid credentials. Use admin/admin or prof/prof');
+        throw new Error('Invalid credentials');
       }
     }
   },
